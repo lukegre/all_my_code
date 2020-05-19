@@ -1,7 +1,8 @@
 import xarray as xr
+from matplotlib import pylab as plt
 
 
-def pimp_plot(ax, **grid_kwargs):
+def pimp_plot(ax=None, **grid_kwargs):
     """
     Runs the following changes on a plot:
     - no x-label (assuming year)
@@ -23,18 +24,23 @@ def pimp_plot(ax, **grid_kwargs):
         changed axes
     """
 
+    if ax is None:
+        ax = plt.gca()
+
     ax.set_xlabel("")
 
     grd_kwds = dict(lw=0.5, color="lightgrey")
     grd_kwds.update(grid_kwargs)
 
-    ax.hlines(ax.get_yticks(), *ax.get_xlim(), **grd_kwds)
+    xlim = ax.get_xlim()
+    ax.hlines(ax.get_yticks(), *xlim, **grd_kwds)
 
     ax.xaxis.set_tick_params(color="#aaaaaa", which="both")
     ax.yaxis.set_tick_params(color="#aaaaaa", which="both")
     [ax.spines[s].set_visible(False) for s in ["right", "top"]]
     [ax.spines[s].set_color("#CCCCCC") for s in ax.spines]
     [ax.spines[s].set_linewidth(1) for s in ax.spines]
+    ax.set_xlim(*xlim)
 
     return ax
 
@@ -98,15 +104,9 @@ class CartopyMap(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-    def __call__(
-        self, ax=None, proj=None, round=True, default_features=True, **kwargs
-    ):
+    def __call__(self, ax=None, proj=None, round=True, default_features=True, **kwargs):
         return self._cartopy(
-            ax=ax,
-            proj=proj,
-            round=round,
-            default_features=default_features,
-            **kwargs
+            ax=ax, proj=proj, round=round, default_features=default_features, **kwargs
         )
 
     @staticmethod
@@ -122,9 +122,7 @@ class CartopyMap(object):
             )
         return xda
 
-    def _cartopy(
-        self, ax=None, proj=None, round=True, default_features=True, **kwargs
-    ):
+    def _cartopy(self, ax=None, proj=None, round=True, default_features=True, **kwargs):
         import matplotlib.pyplot as plt
         from cartopy import feature, crs
 
@@ -200,16 +198,10 @@ class CartopyMap(object):
 
 
 def animate_xda(
-    ax,
-    xda,
-    draw_func=None,
-    dim="time",
-    sname="./animation.mp4",
-    fps=6,
-    **plot_kwargs
+    ax, xda, draw_func=None, dim="time", sname="./animation.mp4", fps=6, **plot_kwargs
 ):
     """
-    NOTE: this function is still in development. Would be 
+    NOTE: this function is still in development. Would be
     nice to have this as a xarray accessor
     Animate a DataArray along the first dimension.
 
@@ -247,12 +239,7 @@ def animate_xda(
     fig = ax.get_figure()
     nframes = xda[dim].size
     anim = animation.FuncAnimation(
-        fig,
-        animate,
-        frames=nframes,
-        blit=True,
-        repeat=False,
-        interval=1000 / fps,
+        fig, animate, frames=nframes, blit=True, repeat=False, interval=1000 / fps,
     )
 
     anim.save(sname, writer=animation.FFMpegWriter(fps=fps))

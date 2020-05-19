@@ -4,7 +4,12 @@ All functions take in an xarray.Dataset and return an xarray.Dataset
 All functions in this preprocessing module should add metadata to the
 xarray object under `history`
 """
+from functools import wraps
+
 from pkg_resources import DistributionNotFound, get_distribution
+
+import xarray as xr
+from astropy import convolution as conv
 
 try:
     __version__ = get_distribution("ocean_data_tools").version
@@ -89,6 +94,7 @@ def rename_to_timelatlon(xds, **kwargs):
         time=["mtime"],
         lat=["latitude", "lats", "yt_ocean", "ylat"],
         lon=["longitude", "lons", "xt_ocean", "longs", "long", "xlon"],
+        depth=[],
     )
     for key in kwargs:
         if key in coords:
@@ -102,6 +108,8 @@ def rename_to_timelatlon(xds, **kwargs):
             rename_dict[key] = "lat"
         if key in coords["lon"]:
             rename_dict[key] = "lon"
+        if key in coords["depth"]:
+            rename_dict[key] = "depth"
 
     xds = xds.rename(rename_dict)
 
@@ -109,7 +117,7 @@ def rename_to_timelatlon(xds, **kwargs):
 
 
 @processor
-def center_coords_at_0(xds):
+def center_coords_at_0(xds, lon_offset=0, lat_offset=0):
     """
     Change longitude from 0:360 to -180:180
 
@@ -121,6 +129,9 @@ def center_coords_at_0(xds):
     -------
     xds : same as input type
         lon will be from -180 to 180 and lats will also be increasing
+    offset_kwargs: keyword-value pairs
+        the keyword matches the dimension name that you would like to
+        add an offset to and the value is the offset magnitude
     """
     import numpy as np
 
@@ -130,10 +141,11 @@ def center_coords_at_0(xds):
     def strictly_increasing(L):
         return all([x < y for x, y in zip(L, L[1:])])
 
-    x = xds["lon"].values
-    y = xds["lat"].values
+    x = xds["lon"].values + lon_offset
+    y = xds["lat"].values + lat_offset
+    x = lon_shift(x)
+    xds = xds.assign_coords(lon=x, lat=y)
 
-    x[x >= 180] -= 360
     if not strictly_increasing(x):
         sort_idx = np.argsort(x)
         xds = xds.isel(**{"lon": sort_idx})
@@ -242,3 +254,86 @@ def resample_time(xds, freq="1D"):
     xds.attrs.update(attrs)
 
     return xds
+
+
+@processor
+def convolve(xda, kernel=None, fill_nans=False, verbose=True):
+    import warnings
+
+    warnings.filterwarnings("ignore", ".*A contiguous region of NaN values.*")
+
+    def _convlve_timestep(xda, kernel, preserve_nan):
+        convolved = xda.copy()
+        convolved.values = conv.convolve(
+            xda.values, kernel, preserve_nan=preserve_nan, boundary="wrap"
+        )
+        return convolved
+
+    ndims = len(xda.dims)
+    preserve_nan = not fill_nans
+
+    if kernel is None:
+        kernel = conv.Gaussian2DKernel(x_stddev=2)
+    elif isinstance(kernel, list):
+        if len(kernel) == 2:
+            kernel_size = kernel
+            for i, ks in enumerate(kernel_size):
+                kernel_size[i] += 0 if (ks % 2) else 1
+            kernel = conv.kernels.Box2DKernel(max(kernel_size))
+            kernel._array = kernel._array[: kernel_size[0], : kernel_size[1]]
+        else:
+            raise UserWarning(
+                "If you pass a list to `kernel`, it needs to have a length of 2"
+            )
+    elif kernel.__class__.__base__ == conv.core.Kernel2D:
+        kernel = kernel
+    else:
+        raise UserWarning(
+            "kernel needs to be a list or astropy.kernels.Kernel2D base type"
+        )
+
+    if ndims == 2:
+        convolved = _convlve_timestep(xda, kernel, preserve_nan)
+    elif ndims == 3:
+        convolved = []
+        for t in range(xda.shape[0]):
+            convolved += (_convlve_timestep(xda[t], kernel, preserve_nan),)
+        convolved = xr.concat(convolved, dim=xda.dims[0])
+
+    kern_size = kernel.shape
+    convolved.attrs["description"] = (
+        "same as `{}` but with {}x{}deg (lon x lat) smoothing using "
+        "astropy.convolution.convolve"
+    ).format(xda.name, kern_size[0], kern_size[1])
+    return convolved
+
+
+def lon_shift(lon):
+    return ((lon + 180) % 360) - 180
+
+
+_func_registry_both = [
+    center_coords_at_0,
+    interpolate_1deg,
+    rename_to_timelatlon,
+    resample_time,
+    shallowest,
+    time_month_day,
+]
+
+
+@xr.register_dataset_accessor("prep")
+@xr.register_dataarray_accessor("prep")
+class PreperationBoth(object):
+    def __init__(self, xarray_obj):
+        self._obj = xarray_obj
+
+        for func in _func_registry_both:
+            setattr(self, func.func.__name__, self._make_accessor_func(func))
+
+    def _make_accessor_func(self, func):
+        @wraps(func)
+        def run_func(*args, **kwargs):
+            return func(self._obj, *args, **kwargs)
+
+        return run_func

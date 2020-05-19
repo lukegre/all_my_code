@@ -1,6 +1,12 @@
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from astropy import convolution as conv
+
+warnings.filterwarnings("ignore", ".*All-NaN slice encountered.*")
+warnings.filterwarnings("ignore", ".*invalid value encountered in less.*")
 
 
 @xr.register_dataarray_accessor("stats")
@@ -9,11 +15,7 @@ class Statistics(object):
         self._obj = xarray_obj
 
     def pca_decomp(
-        self,
-        n_components=10,
-        return_plots=False,
-        return_pca=False,
-        **pca_kwargs,
+        self, n_components=10, return_plots=False, return_pca=False, **pca_kwargs,
     ):
         """
         Apply a principle component decomposition to a dataset with
@@ -61,9 +63,7 @@ class Statistics(object):
         v, m = unnan(xda.values)
 
         trans = pca.fit_transform(v.T)
-        trans_3D = renan(
-            trans, m, shape=[n_components, coords[y].size, coords[x].size]
-        )
+        trans_3D = renan(trans, m, shape=[n_components, coords[y].size, coords[x].size])
 
         xds = xr.Dataset(attrs={"name": xda.name})
         dims = ["n_components", "lat", "lon"]
@@ -80,9 +80,7 @@ class Statistics(object):
 
         dims = ["n_components"]
         props = dict(coords={k: coords[k] for k in dims}, dims=dims)
-        xds["variance_explained"] = xr.DataArray(
-            pca.explained_variance_ratio_, **props
-        )
+        xds["variance_explained"] = xr.DataArray(pca.explained_variance_ratio_, **props)
 
         if return_plots and return_pca:
             fig = self._pca_plot(xds)
@@ -128,18 +126,10 @@ class Statistics(object):
 
             a0.plot(pt, xds_pca.principle_components[i].values)
             a0.axhline(0, color="k")
-            a0.set_ylabel(
-                "Component {}\n({:.2f}%)".format(i + 1, var), fontsize=12
-            )
+            a0.set_ylabel("Component {}\n({:.2f}%)".format(i + 1, var), fontsize=12)
 
             img = a1.pcolormesh(
-                px,
-                py,
-                pz,
-                vmin=-lim,
-                rasterized=True,
-                vmax=lim,
-                cmap=plt.cm.RdBu_r,
+                px, py, pz, vmin=-lim, rasterized=True, vmax=lim, cmap=plt.cm.RdBu_r,
             )
             plt.colorbar(img, ax=a1)
             img.colorbar.set_label("Transformed units")
@@ -165,34 +155,51 @@ class Statistics(object):
 
         return fig
 
-    def trend(self):
+    def trend(
+        self, dim=None, return_stats=True, return_trend=True, return_input=False,
+    ):
         """
-        Calculates the trend of the data along the 'time' dimension
-        of the input array (xarr).
-        USAGE:  x_DS = xarray_trend(xarr)
-        INPUT:  xarr is an xarray DataArray with dims:
-                    time, [lat, lon]
-                    where lat and/or lon are optional
-        OUTPUT: xArray Dataset with:
-                    original xarr input
-                    slope
-                    p-value
+        Calculates the trend of the data along the first or given dimension
+        of the input data array. Uses y = mx + c
 
-        TODO?
-        There could be speed improvements (using numpy at the moment)
+        Parameters
+        ----------
+        dim: str
+            calculate the trend along the given dimension. If left as None,
+            will assume that the first dimension is the dimension along which
+            you want to calculate the trend
+        return_stats: bool
+            when set to True, will return the intercept, slope and pvalues
+        return_trend: bool
+            when set to True, will return the trend data with the same shape as
+            the input
+
+        Returns
+        -------
+        trend_data : xr.Dataset
+            A dataset containing the slope, intercept and p-values
+            If trend is requested, then the calculated slope is included
         """
 
-        from scipy import stats
+        xda = self._obj
+
+        assert isinstance(dim, str) | (dim is None), "'dim' must be str or None"
+        assert isinstance(return_trend, bool), "return_trend must be boolean"
+        assert isinstance(return_stats, bool), "return_stats must be boolean"
+        assert return_stats | return_trend, (
+            "no point in running the function when " "you don't want stats or trends. "
+        )
+
+        if dim is None:
+            dim = xda.dims[0]
+        elif dim not in xda.dims:
+            raise KeyError(f"'{dim}' is not a dim in the list of dims {xda.dims}")
 
         # getting shapes
-
-        xarr = self._obj
-
-        n = xarr.shape[0]
-
+        n = xda[dim].size
         # creating x and y variables for linear regression
-        x = xarr.time.to_pandas().index.to_julian_date().values[:, None]
-        y = xarr.to_masked_array().reshape(n, -1)
+        x = np.arange(n)[:, None]
+        y = xda.to_masked_array().reshape(n, -1)
 
         # ############################ #
         # LINEAR REGRESSION DONE BELOW #
@@ -207,36 +214,91 @@ class Statistics(object):
         xys = (xa * ya).sum(0) / (n - 1)  # covariance (with df as n-1)
         # slope and intercept
         slope = xys / xss
-        # statistics about fit
-        df = n - 2
-        r = xys / (xss * yss) ** 0.5
-        t = r * (df / ((1 - r) * (1 + r))) ** 0.5
-        p = stats.distributions.t.sf(abs(t), df)
+        intercept = ym - (slope * xm)
 
-        # misclaneous additional functions
-        # intercept = ym - (slope * xm)
-        # yhat = dot(x, slope[None]) + intercept
         # sse = ((yhat - y)**2).sum(0) / (n - 2)  # n-2 is df
         # se = ((1 - r**2) * yss / xss / df)**0.5
 
         # preparing outputs
-        out = xarr.to_dataset(name=xarr.name)
-        # first create variable for slope and adjust meta
-        out["slope"] = xarr[:2].mean("time").copy()
-        out["slope"].name += "_slope"
-        out["slope"].attrs["units"] = "units / day"
-        out["slope"].values = slope.reshape(xarr.shape[1:])
-        # do the same for the p value
-        out["pval"] = xarr[:2].mean("time").copy()
-        out["pval"].name += "_Pvalue"
-        out["pval"].values = p.reshape(xarr.shape[1:])
-        out["pval"].attrs["info"] = (
-            "If p < 0.05 then the results " "from 'slope' are significant."
-        )
+        out = xda.to_dataset(name=xda.name)
+        dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
+        units = xda.attrs.units if "units" in xda.attrs else ""
+        shape = dummy.shape
+
+        if return_stats:
+            from scipy import stats
+
+            # statistics about fit
+            df = n - 2
+            r = xys / (xss * yss) ** 0.5
+            t = r * (df / ((1 - r) * (1 + r))) ** 0.5
+            p = stats.distributions.t.sf(abs(t), df)
+
+            # first create variable for slope and adjust meta
+            out["slope"] = dummy.copy()
+            out["slope"].name += "_slope"
+            out["slope"].attrs["units"] = f"{units} / {dim}_step"
+            out["slope"].values = slope.reshape(shape)
+
+            # first create variable for slope and adjust meta
+            out["intercept"] = dummy.copy()
+            out["intercept"].name += "_intercept"
+            out["intercept"].attrs["units"] = units
+            out["intercept"].values = intercept.reshape(shape)
+
+            # do the same for the p value
+            out["pval"] = dummy.copy()
+            out["pval"].name += "_Pvalue"
+            out["pval"].values = p.reshape(shape)
+            out["pval"].attrs["info"] = (
+                "If p < 0.05 then the results " "from 'slope' are significant."
+            )
+            out["pval"] = out.pval.where(out.slope.notnull())
+
+        if return_trend:
+            from numpy import dot
+
+            yhat = dot(x, slope[None]) + intercept
+            out["trend"] = xda.copy()
+            out["trend"].name += "_trend"
+            out["trend"].attrs["units"] = f"{units}"
+            out["trend"].values = yhat.reshape(xda.shape)
+
+        if not return_input:
+            out = out.drop(xda.name)
 
         return out
 
-        pass
+    def detrend(self, dim=None):
+        """
+        Removes the trend of the data along the first or given dimension
+        of the input data array. Uses y = mx + c
+
+        Parameters
+        ----------
+        dim: str
+            calculate the trend along the given dimension. If left as None,
+            will assume that the first dimension is the dimension along which
+            you want to calculate the trend
+
+        Returns
+        -------
+        trend_data : xr.DataArray
+            A data array that is the same as the input, but without the linear
+            trend along the given dimension
+        """
+
+        xda = self._obj
+        trend = self.trend(dim=dim, return_trend=True, return_stats=False).trend
+
+        name = xda.name + "_" if hasattr(xda, "name") else ""
+        detrended = xda - trend
+        detrended.name = name + "detrended"
+        detrended.attrs[
+            "description"
+        ] = f"linearly detrended data along the {dim} dimension."
+
+        return detrended
 
     def corr_vars(self, xarr2):
         from pandas import DataFrame
@@ -306,9 +368,7 @@ class Climatology:
         if isinstance(xro, xr.DataArray):
             return self._climatology(xro, full=full, period=period, dim=dim)
         else:
-            return xro.apply(
-                self._climatology, full=full, period=period, dim=dim
-            )
+            return xro.apply(self._climatology, full=full, period=period, dim=dim)
 
     __call__ = climatology
 
@@ -324,9 +384,7 @@ class Climatology:
             return xro.apply(self.climatology, period=period, dim=dim)
 
     @staticmethod
-    def _climatology(
-        xda, full=False, period="month", dim="time", reduce_func="mean"
-    ):
+    def _climatology(xda, full=False, period="month", dim="time", reduce_func="mean"):
         group = xda.groupby(f"{dim}.{period}")
         clim = getattr(group, reduce_func)(dim)
         if full:
@@ -342,3 +400,85 @@ class Climatology:
     def _anomaly(xda, period="month", dim="time"):
         group = xda.groupby(f"{dim}.{period}")
         return group - group.mean(dim)
+
+
+@xr.register_dataarray_accessor("convolve")
+class Convolve(object):
+    def __init__(self, xarray_obj):
+        self._obj = xarray_obj
+
+    def __call__(
+        self, kernel=conv.Gaussian2DKernel(x_stddev=2), fill_nans=False, verbose=True,
+    ):
+        return self.spatial(kernel, fill_nans, verbose)
+
+    @staticmethod
+    def _convlve_timestep(xda, kernel, preserve_nan):
+        convolved = xda.copy()
+        convolved.values = conv.convolve(
+            xda.values, kernel, preserve_nan=preserve_nan, boundary="wrap"
+        )
+        return convolved
+
+    def spatial(self, kernel=None, fill_nans=False, verbose=True):
+        xda = self._obj
+        ndims = len(xda.dims)
+        preserve_nan = not fill_nans
+
+        if kernel is None:
+            kernel = conv.Gaussian2DKernel(x_stddev=2)
+        elif isinstance(kernel, list):
+            if len(kernel) == 2:
+                kernel_size = kernel
+                for i, ks in enumerate(kernel_size):
+                    kernel_size[i] += 0 if (ks % 2) else 1
+                kernel = conv.kernels.Box2DKernel(max(kernel_size))
+                kernel._array = kernel._array[: kernel_size[0], : kernel_size[1]]
+            else:
+                raise UserWarning(
+                    "If you pass a list to `kernel`, must have a length of 2"
+                )
+        elif kernel.__class__.__base__ == conv.core.Kernel2D:
+            kernel = kernel
+        else:
+            raise UserWarning(
+                "kernel needs to be list or astropy.kernels.Kernel2D base type"
+            )
+
+        if ndims == 2:
+            convolved = self._convlve_timestep(xda, kernel, preserve_nan)
+        elif ndims == 3:
+            convolved = []
+            for t in range(xda.shape[0]):
+                if verbose:
+                    print(".", end="")
+                convolved += (self._convlve_timestep(xda[t], kernel, preserve_nan),)
+            convolved = xr.concat(convolved, dim=xda.dims[0])
+
+        kern_size = kernel.shape
+        convolved.attrs["description"] = (
+            "same as `{}` but with {}x{}deg (lon x lat) smoothing using "
+            "astropy.convolution.convolve"
+        ).format(xda.name, kern_size[0], kern_size[1])
+        return convolved
+
+
+@xr.register_dataarray_accessor("fill_empty_diff")
+class FillEmpty(object):
+    def __init__(self, xarray_obj):
+        self._obj = xarray_obj
+
+    def __call__(self, filler):
+        xda = self._obj
+        return self._fill_empty_diff(xda, filler)
+
+    @staticmethod
+    def _fill_empty_diff(xda, filler):
+        assert xda.shape == filler.shape, "both arrays must have the same shape"
+
+        mask = (xda.isnull() & filler.notnull()).values
+        arr = xda.values.copy()
+        arr[mask] = filler.values[mask]
+
+        xda.values = arr
+        return xda

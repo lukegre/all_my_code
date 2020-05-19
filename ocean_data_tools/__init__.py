@@ -1,7 +1,8 @@
 from pkg_resources import DistributionNotFound, get_distribution
 
 from . import _xarray_stats  # xr.accessors should not be visible
-from . import gridding, plotting, sparse
+from . import gridding_matching as grid
+from . import plotting, sparse
 from . import xarray_data_prep as prep
 
 try:
