@@ -12,3 +12,10 @@ ocean_data_tools
 
 
 tools that I've developed over time that form a part of my daily workflow. Thought good to share.
+
+
+Installation
+------------
+```bash
+pip install git+git://github.com/luke-gregor/OceanDataTools.git
+```
