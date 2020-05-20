@@ -24,6 +24,9 @@ To get the latest version:
 Usage
 -----
 
+Just a few examples of functions that might be useful. This is not a complete list. 
+The functions themselves are quite well documented. 
+
 .. code-block:: python
 
    import ocean_data_tools as odt  # will import xarray methods/accessors too
