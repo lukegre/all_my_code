@@ -187,7 +187,7 @@ class Statistics(object):
         assert isinstance(return_trend, bool), "return_trend must be boolean"
         assert isinstance(return_stats, bool), "return_stats must be boolean"
         assert return_stats | return_trend, (
-            "no point in running the function when " "you don't want stats or trends. "
+            "no point in running the function when you don't want stats or trends"
         )
 
         if dim is None:
@@ -220,7 +220,10 @@ class Statistics(object):
         # se = ((1 - r**2) * yss / xss / df)**0.5
 
         # preparing outputs
-        out = xda.to_dataset(name=xda.name)
+        name = xda.name if not hasattr(xda, "name") else "array"
+        if name is None:
+            name = "array"
+        out = xda.to_dataset(name=name)
         dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
         units = xda.attrs.units if "units" in xda.attrs else ""
         shape = dummy.shape
@@ -265,7 +268,7 @@ class Statistics(object):
             out["trend"].values = yhat.reshape(xda.shape)
 
         if not return_input:
-            out = out.drop(xda.name)
+            out = out.drop(name)
 
         return out
 
@@ -290,8 +293,9 @@ class Statistics(object):
 
         xda = self._obj
         trend = self.trend(dim=dim, return_trend=True, return_stats=False).trend
-
-        name = xda.name + "_" if hasattr(xda, "name") else ""
+        
+        name = xda.name if hasattr(xda, "name") else "array"
+        name = "array" if name is None else name
         detrended = xda - trend
         detrended.name = name + "detrended"
         detrended.attrs[

@@ -74,6 +74,19 @@ def save_figures_to_pdf(fig_list, pdf_name, **savefig_kwargs):
 
     pdf.close()
     plt.close("all")
+    
+
+def close_lon_gap(xda):
+    lon = xda.dims[-1]
+    halflon = xda[lon].size / 2
+
+    if xda[:, [0, -1]].isnull().all():
+        xda = (
+            xda.roll(**{lon: halflon}, roll_coords=False)
+            .interpolate_na("lon", limit=6)
+            .roll(**{lon: -halflon}, roll_coords=False)
+        )
+    return xda
 
 
 @xr.register_dataarray_accessor("plot_map")
