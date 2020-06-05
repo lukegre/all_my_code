@@ -74,7 +74,7 @@ def save_figures_to_pdf(fig_list, pdf_name, **savefig_kwargs):
 
     pdf.close()
     plt.close("all")
-    
+
 
 def close_lon_gap(xda):
     lon = xda.dims[-1]

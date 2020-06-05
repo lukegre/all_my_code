@@ -186,9 +186,9 @@ class Statistics(object):
         assert isinstance(dim, str) | (dim is None), "'dim' must be str or None"
         assert isinstance(return_trend, bool), "return_trend must be boolean"
         assert isinstance(return_stats, bool), "return_stats must be boolean"
-        assert return_stats | return_trend, (
-            "no point in running the function when you don't want stats or trends"
-        )
+        assert (
+            return_stats | return_trend
+        ), "no point in running the function when you don't want stats or trends"
 
         if dim is None:
             dim = xda.dims[0]
@@ -293,7 +293,7 @@ class Statistics(object):
 
         xda = self._obj
         trend = self.trend(dim=dim, return_trend=True, return_stats=False).trend
-        
+
         name = xda.name if hasattr(xda, "name") else "array"
         name = "array" if name is None else name
         detrended = xda - trend

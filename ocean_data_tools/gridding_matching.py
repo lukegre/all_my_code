@@ -1,6 +1,6 @@
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
 
 def grid_flat_data(*data_columns, sparse=True, **coordinate_columns):
@@ -19,21 +19,21 @@ def grid_flat_data(*data_columns, sparse=True, **coordinate_columns):
 
     sizes = np.unique([len(v) for v in coordinate_columns.values()])
     assert len(sizes) == 1, "All coordinates need to be the same length"
-    
+
     coordinate_cols = {k: v.values for k, v in coordinate_columns.items()}
     coordinate_cols.update({v.name: v for v in data_columns})
-    
+
     df = pd.DataFrame.from_dict(coordinate_cols)
     grouped = df.groupby(by=coordinate_cols)
     out = grouped.mean()
-    
+
     if isinstance(out, xr.DataArray):
         return xr.DataArray.from_series(out, sparse=sparse)
     elif isinstance(out, xr.Dataset):
         return xr.Dataset.from_dataframe(out, sparse=sparse)
-    
+
     return out
-    
+
 
 def _grid_flat_data(*data_columns, return_dataaray=True, **coordinate_columns):
     """
@@ -52,9 +52,7 @@ def _grid_flat_data(*data_columns, return_dataaray=True, **coordinate_columns):
     def make_bins(a):
         if isinstance(a[0], np.datetime64):
             istime = True
-            inf = (
-                np.timedelta64(9, "Y").astype("timedelta64[ns]").astype(float)
-            )
+            inf = np.timedelta64(9, "Y").astype("timedelta64[ns]").astype(float)
         else:
             istime = False
             inf = np.inf
@@ -134,17 +132,13 @@ def colocate_xdarray(xda, verbose=True, **coords):
         x = np.array(x)
         if np.issubdtype(x.dtype, np.datetime64):
             dx = np.nanmean(np.diff(x).astype(int)).astype("timedelta64[ns]")
-            bins = np.arange(
-                x[0] - dx / 2, x[-1] + dx, dx, dtype="datetime64[ns]"
-            )
+            bins = np.arange(x[0] - dx / 2, x[-1] + dx, dx, dtype="datetime64[ns]")
         else:
             dx = np.nanmean(np.diff(x))
             bins = np.linspace(x[0] - dx / 2, x[-1] + dx / 2, x.size + 1)
-        assert (len(x) + 1) == len(
-            bins
-        ), "bins must be one longer than centers"
+        assert (len(x) + 1) == len(bins), "bins must be one longer than centers"
         return bins
-    
+
     dims = xda.dims
     keys = list(coords.keys())
 
@@ -153,34 +147,30 @@ def colocate_xdarray(xda, verbose=True, **coords):
     not_matched = [k for k in keys if k not in dims]
     coord_lengths = set([coords[k].size for k in keys])
 
-    assert (
-        len(coord_lengths) == 1
-    ), "All given coords need to be the same length"
+    assert len(coord_lengths) == 1, "All given coords need to be the same length"
     assert len(keys) > 0, "You need to have at least one coordinate to match"
     assert len(not_matched) == 0, f"Coords are not in xda: {str(not_matched)}"
 
     dtypes = {k: [xda[k].dtype, coords[k].dtype] for k in keys}
     type_missmatch = [k for k in keys if coords[k].dtype.kind != xda[k].dtype.kind]
 
-    assert (
-        len(type_missmatch) == 0
-    ), (
+    assert len(type_missmatch) == 0, (
         f"Dimensions to not have the same type: "
         f"{str({k: dtypes[k] for k in type_missmatch})}"
     )
-    
+
     vprint("{}:".format(xda.name), end=" ")
-    
+
     ranges = {k: slice(coords[k].min(), coords[k].max()) for k in keys}
-    
+
     xdr = xda.sel(**ranges)
     if xdr.size > (720 * 1440 * 365 * 2):
         raise ValueError(
-            f'the range of the input coordinates is too large to load for the '
-            f'given dataarray {xda.name} with a shape of {xda.shape}'
+            f"the range of the input coordinates is too large to load for the "
+            f"given dataarray {xda.name} with a shape of {xda.shape}"
         )
     elif xdr.size == 0:
-        vprint('no data within coordinate ranges - returning nans')
+        vprint("no data within coordinate ranges - returning nans")
         return np.ones(list(coord_lengths)[0]) * np.NaN
     else:
         vprint("loading", end=", ")
@@ -193,9 +183,7 @@ def colocate_xdarray(xda, verbose=True, **coords):
     binned = pd.DataFrame(
         {
             k: pd.cut(
-                coords[k],
-                bins[k],
-                labels=np.arange(bins[k].size - 1, dtype=int),
+                coords[k], bins[k], labels=np.arange(bins[k].size - 1, dtype=int),
             )
             for k in keys
         }
@@ -214,7 +202,7 @@ def colocate_xdarray(xda, verbose=True, **coords):
             index += (binned[key].astype(int),)
         else:
             index += (slice(None),)
-    
+
     out = xdr.values.__getitem__(index).T
     out[null] = np.NaN
 
