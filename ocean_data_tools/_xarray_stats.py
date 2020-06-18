@@ -7,6 +7,7 @@ from astropy import convolution as conv
 
 warnings.filterwarnings("ignore", ".*All-NaN slice encountered.*")
 warnings.filterwarnings("ignore", ".*invalid value encountered in less.*")
+warnings.filterwarnings("ignore", ".*convolution.*")
 
 
 @xr.register_dataarray_accessor("stats")
@@ -195,6 +196,8 @@ class Statistics(object):
         elif dim not in xda.dims:
             raise KeyError(f"'{dim}' is not a dim in the list of dims {xda.dims}")
 
+        mask = xda.notnull()
+        xda = xda.where(mask, drop=True)
         # getting shapes
         n = xda[dim].size
         # creating x and y variables for linear regression
@@ -211,9 +214,10 @@ class Statistics(object):
         # variance and covariances
         xss = (xa ** 2).sum(0) / (n - 1)  # variance of x (with df as n-1)
         yss = (ya ** 2).sum(0) / (n - 1)  # variance of y (with df as n-1)
-        xys = (xa * ya).sum(0) / (n - 1)  # covariance (with df as n-1)
+        xys = (xa * ya).sum(0) / (n - 1)  # covariance    (with df as n-1)
         # slope and intercept
         slope = xys / xss
+        #         slope = (xa * ya).sum(0) / (xa**2).sum(0)
         intercept = ym - (slope * xm)
 
         # sse = ((yhat - y)**2).sum(0) / (n - 2)  # n-2 is df
@@ -225,7 +229,7 @@ class Statistics(object):
             name = "array"
         out = xda.to_dataset(name=name)
         dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
-        units = xda.attrs.units if "units" in xda.attrs else ""
+        units = xda.attrs["units"] if "units" in xda.attrs else ""
         shape = dummy.shape
 
         if return_stats:
@@ -270,7 +274,7 @@ class Statistics(object):
         if not return_input:
             out = out.drop(name)
 
-        return out
+        return out.reindex(time=mask.time)
 
     def detrend(self, dim=None):
         """
