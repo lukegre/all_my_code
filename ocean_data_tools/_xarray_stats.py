@@ -197,79 +197,76 @@ class Statistics(object):
             raise KeyError(f"'{dim}' is not a dim in the list of dims {xda.dims}")
 
         mask = xda.notnull()
-        xda = xda.where(mask, drop=True)
+        # xda = xda.where(mask, drop=True)
         # getting shapes
-        n = xda[dim].size
         # creating x and y variables for linear regression
-        x = np.arange(n)[:, None]
-        y = xda.to_masked_array().reshape(n, -1)
+        x = xda[dim].where(mask)
+        y = xda.where(mask)
 
         # ############################ #
         # LINEAR REGRESSION DONE BELOW #
-        xm = x.mean(0)  # mean
-        ym = y.mean(0)  # mean
+        xm = xda[dim].mean()  # mean
+        ym = xda.mean(dim)  # mean
         ya = y - ym  # anomaly
         xa = x - xm  # anomaly
 
         # variance and covariances
-        xss = (xa ** 2).sum(0) / (n - 1)  # variance of x (with df as n-1)
-        yss = (ya ** 2).sum(0) / (n - 1)  # variance of y (with df as n-1)
-        xys = (xa * ya).sum(0) / (n - 1)  # covariance    (with df as n-1)
+        xss = (xa ** 2).sum(dim)  # variance of x (with df as n-1)
+        yss = (ya ** 2).sum(dim)  # variance of y (with df as n-1)
+        xys = (xa * ya).sum(dim)  # covariance    (with df as n-1)
         # slope and intercept
         slope = xys / xss
-        #         slope = (xa * ya).sum(0) / (xa**2).sum(0)
         intercept = ym - (slope * xm)
-
-        # sse = ((yhat - y)**2).sum(0) / (n - 2)  # n-2 is df
-        # se = ((1 - r**2) * yss / xss / df)**0.5
 
         # preparing outputs
         name = xda.name if not hasattr(xda, "name") else "array"
         if name is None:
             name = "array"
         out = xda.to_dataset(name=name)
-        dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
+        # dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
         units = xda.attrs["units"] if "units" in xda.attrs else ""
-        shape = dummy.shape
 
         if return_stats:
             from scipy import stats
 
             # statistics about fit
-            df = n - 2
+            df = x.count(dim) - 2
             r = xys / (xss * yss) ** 0.5
             t = r * (df / ((1 - r) * (1 + r))) ** 0.5
             p = stats.distributions.t.sf(abs(t), df)
 
             # first create variable for slope and adjust meta
-            out["slope"] = dummy.copy()
+            out["slope"] = slope
             out["slope"].name += "_slope"
             out["slope"].attrs["units"] = f"{units} / {dim}_step"
-            out["slope"].values = slope.reshape(shape)
+            # out["slope"].values = slope.reshape(shape)
 
             # first create variable for slope and adjust meta
-            out["intercept"] = dummy.copy()
+            out["intercept"] = intercept  # dummy.copy()
             out["intercept"].name += "_intercept"
             out["intercept"].attrs["units"] = units
-            out["intercept"].values = intercept.reshape(shape)
+            # out["intercept"].values = intercept.reshape(shape)
 
             # do the same for the p value
-            out["pval"] = dummy.copy()
+            print(p.shape)
+            out["pval"] = xr.DataArray(
+                p, coords=df.coords, dims=df.dims
+            )  # dummy.copy()
             out["pval"].name += "_Pvalue"
-            out["pval"].values = p.reshape(shape)
+            # out["pval"].values = p.reshape(shape)
             out["pval"].attrs["info"] = (
                 "If p < 0.05 then the results " "from 'slope' are significant."
             )
-            out["pval"] = out.pval.where(out.slope.notnull())
+            # out["pval"] = out.pval.where(out.slope.notnull())
 
         if return_trend:
-            from numpy import dot
+            # from numpy import dot
 
-            yhat = dot(x, slope[None]) + intercept
-            out["trend"] = xda.copy()
+            yhat = slope * x + intercept
+            out["trend"] = yhat  # xda.copy()
             out["trend"].name += "_trend"
             out["trend"].attrs["units"] = f"{units}"
-            out["trend"].values = yhat.reshape(xda.shape)
+            # out["trend"].values = yhat.reshape(xda.shape)
 
         if not return_input:
             out = out.drop(name)
