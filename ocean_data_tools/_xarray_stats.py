@@ -1,3 +1,4 @@
+import re
 import warnings
 
 import matplotlib.pyplot as plt
@@ -181,6 +182,7 @@ class Statistics(object):
             A dataset containing the slope, intercept and p-values
             If trend is requested, then the calculated slope is included
         """
+        from .date_utils import convert_time_to_most_suitable_unit
 
         xda = self._obj
 
@@ -200,12 +202,14 @@ class Statistics(object):
         # xda = xda.where(mask, drop=True)
         # getting shapes
         # creating x and y variables for linear regression
-        x = xda[dim].where(mask)
+        x_original = convert_time_to_most_suitable_unit(xda[dim])
+        x = xr.DataArray(x_original.astype(float), dims=[dim])
+        # x = x_original.astype(float)
         y = xda.where(mask)
 
         # ############################ #
         # LINEAR REGRESSION DONE BELOW #
-        xm = xda[dim].mean()  # mean
+        xm = x.mean()  # mean
         ym = xda.mean(dim)  # mean
         ya = y - ym  # anomaly
         xa = x - xm  # anomaly
@@ -226,6 +230,14 @@ class Statistics(object):
         # dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
         units = xda.attrs["units"] if "units" in xda.attrs else ""
 
+        dim_unit = str(x_original.dtype)
+        time_unit_abbrev = dict(Y="year", M="month", D="day", m="minute", s="second")
+        if "datetime64" in dim_unit:
+            dim_unit = re.sub("datetime64|\[|\]", "", dim_unit)
+            dim_unit = time_unit_abbrev.get(dim_unit, dim_unit)
+        else:
+            dim_unit = f"{dim}_step"
+
         if return_stats:
             from scipy import stats
 
@@ -238,7 +250,7 @@ class Statistics(object):
             # first create variable for slope and adjust meta
             out["slope"] = slope
             out["slope"].name += "_slope"
-            out["slope"].attrs["units"] = f"{units} / {dim}_step"
+            out["slope"].attrs["units"] = f"{units} / {dim_unit}"
             # out["slope"].values = slope.reshape(shape)
 
             # first create variable for slope and adjust meta
@@ -248,9 +260,8 @@ class Statistics(object):
             # out["intercept"].values = intercept.reshape(shape)
 
             # do the same for the p value
-            print(p.shape)
             out["pval"] = xr.DataArray(
-                p, coords=df.coords, dims=df.dims
+                p, coords=out.slope.coords, dims=out.slope.dims
             )  # dummy.copy()
             out["pval"].name += "_Pvalue"
             # out["pval"].values = p.reshape(shape)
@@ -261,12 +272,14 @@ class Statistics(object):
 
         if return_trend:
             # from numpy import dot
-
             yhat = slope * x + intercept
             out["trend"] = yhat  # xda.copy()
             out["trend"].name += "_trend"
             out["trend"].attrs["units"] = f"{units}"
             # out["trend"].values = yhat.reshape(xda.shape)
+
+        out[dim] = x_original
+        out[dim].attrs["units"] = dim_unit
 
         if not return_input:
             out = out.drop(name)
