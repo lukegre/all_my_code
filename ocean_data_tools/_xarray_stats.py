@@ -202,9 +202,8 @@ class Statistics(object):
         # xda = xda.where(mask, drop=True)
         # getting shapes
         # creating x and y variables for linear regression
-        x_original = convert_time_to_most_suitable_unit(xda[dim])
-        x = xr.DataArray(x_original.astype(float), dims=[dim])
-        # x = x_original.astype(float)
+        x_optimal_unit = convert_time_to_most_suitable_unit(xda[dim])
+        x = xr.DataArray(x_optimal_unit.astype(float), dims=(dim,))
         y = xda.where(mask)
 
         # ############################ #
@@ -230,7 +229,7 @@ class Statistics(object):
         # dummy = xda.isel(**{dim: slice(0, 2)}).mean(dim)
         units = xda.attrs["units"] if "units" in xda.attrs else ""
 
-        dim_unit = str(x_original.dtype)
+        dim_unit = str(x_optimal_unit.dtype)
         time_unit_abbrev = dict(Y="year", M="month", D="day", m="minute", s="second")
         if "datetime64" in dim_unit:
             dim_unit = re.sub("datetime64|\[|\]", "", dim_unit)
@@ -272,19 +271,22 @@ class Statistics(object):
 
         if return_trend:
             # from numpy import dot
-            yhat = slope * x + intercept
+            yhat = (slope * x + intercept).transpose(*xda.dims)
             out["trend"] = yhat  # xda.copy()
             out["trend"].name += "_trend"
             out["trend"].attrs["units"] = f"{units}"
             # out["trend"].values = yhat.reshape(xda.shape)
 
-        out[dim] = x_original
+        out[dim] = x_optimal_unit
         out[dim].attrs["units"] = dim_unit
 
         if not return_input:
             out = out.drop(name)
 
-        return out.reindex(time=mask.time)
+        # making sure to replace the original units of the dimension
+        # over which the trend is calculated
+        out[dim] = xda[dim]
+        return out
 
     def detrend(self, dim=None):
         """
