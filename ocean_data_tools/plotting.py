@@ -119,7 +119,7 @@ class CartopyMap(object):
 
     def __call__(self, ax=None, proj=None, round=True, default_features=True, **kwargs):
         return self._cartopy(
-            ax=ax, proj=proj, round=round, default_features=default_features, **kwargs
+            ax=ax, proj=proj, round=round, default_features=default_features, land_color='w', **kwargs
         )
 
     @staticmethod
@@ -193,7 +193,7 @@ class CartopyMap(object):
 
         # adds features
         if default_features:
-            ax.add_feature(feature.LAND, color="w", zorder=4)
+            ax.add_feature(feature.LAND, color=land_color, zorder=4)
             ax.add_feature(feature.COASTLINE, lw=0.5, zorder=4)
 
         if "robust" not in kwargs:
