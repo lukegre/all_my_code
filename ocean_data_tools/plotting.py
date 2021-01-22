@@ -146,7 +146,7 @@ class CartopyMap(object):
 
         if ax is None:
             tighten = True
-            proj = crs.Robinson(cntr_lon) if proj is None else proj
+            proj = crs.PlateCarree(cntr_lon) if proj is None else proj
             fig, ax = plt.subplots(
                 1, 1, figsize=[11, 4], dpi=100, subplot_kw={"projection": proj}
             )
@@ -193,7 +193,7 @@ class CartopyMap(object):
 
         # adds features
         if default_features:
-            ax.add_feature(feature.LAND, color="#CCCCCC", zorder=4)
+            ax.add_feature(feature.LAND, color="w", zorder=4)
             ax.add_feature(feature.COASTLINE, lw=0.5, zorder=4)
 
         if "robust" not in kwargs:
