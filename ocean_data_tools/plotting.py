@@ -117,9 +117,9 @@ class CartopyMap(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-    def __call__(self, ax=None, proj=None, round=True, default_features=True, **kwargs):
+    def __call__(self, ax=None, proj=None, round=True, land_color='w', default_features=True, **kwargs):
         return self._cartopy(
-            ax=ax, proj=proj, round=round, default_features=default_features, land_color='w', **kwargs
+            ax=ax, proj=proj, round=round, default_features=default_features, land_color=land_color, **kwargs
         )
 
     @staticmethod
@@ -135,7 +135,7 @@ class CartopyMap(object):
             )
         return xda
 
-    def _cartopy(self, ax=None, proj=None, round=True, default_features=True, **kwargs):
+    def _cartopy(self, ax=None, proj=None, round=True, default_features=True, land_color='w', **kwargs):
         import matplotlib.pyplot as plt
         from cartopy import feature, crs
 
