@@ -283,10 +283,7 @@ class Statistics(object):
         if not return_input:
             out = out.drop(name)
 
-        # making sure to replace the original units of the dimension
-        # over which the trend is calculated
-        out[dim] = xda[dim]
-        return out
+        return out.reindex(**{dim: mask[dim]})
 
     def detrend(self, dim=None):
         """

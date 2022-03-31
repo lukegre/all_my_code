@@ -141,14 +141,14 @@ class CartopyMap(object):
 
         xda = self._obj.squeeze()
 
-        cntr_lon = getattr(kwargs, "central_longitude", -152)
+        cntr_lon = getattr(kwargs, "central_longitude", -155)
         assert xda.ndim == 2, "The array must be two dimensional"
 
         if ax is None:
             tighten = True
             proj = crs.PlateCarree(cntr_lon) if proj is None else proj
             fig, ax = plt.subplots(
-                1, 1, figsize=[11, 4], dpi=100, subplot_kw={"projection": proj}
+                1, 1, figsize=[11, 4], dpi=120, subplot_kw={"projection": proj}
             )
         else:
             tighten = False
@@ -206,6 +206,9 @@ class CartopyMap(object):
             ax.colorbar = axm.colorbar
         if tighten:
             fig.tight_layout()
+            
+        ax.outline_patch.set_zorder(5)
+        ax.outline_patch.set_lw(0.5)
 
         return ax
 
@@ -258,3 +261,4 @@ def animate_xda(
     anim.save(sname, writer=animation.FFMpegWriter(fps=fps))
 
     pyplot.close(fig)
+

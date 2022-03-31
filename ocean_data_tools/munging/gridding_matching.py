@@ -161,7 +161,7 @@ def colocate_xdarray(xda, verbose=True, **coords):
 
     vprint("{}:".format(xda.name), end=" ")
 
-    ranges = {k: slice(coords[k].min(), coords[k].max()) for k in keys}
+    ranges = {k: slice(np.nanmin(coords[k]), np.nanmax(coords[k])) for k in keys}
 
     xdr = xda.sel(**ranges)
     if xdr.size > (720 * 1440 * 365 * 2):
