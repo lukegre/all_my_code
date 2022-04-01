@@ -3,7 +3,7 @@ import xarray as xr
 from functools import wraps as _wraps
 
 try:
-    __version__ = get_distribution("all_my_tools").version
+    __version__ = get_distribution("all_my_code").version
 except DistributionNotFound:
     __version__ = ""
 del get_distribution, DistributionNotFound

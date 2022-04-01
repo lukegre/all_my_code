@@ -14,7 +14,7 @@
 
 from pkg_resources import get_distribution
 
-release = get_distribution('all_my_tools').version
+release = get_distribution('all_my_code').version
 version = '.'.join(release.split('.')[:2])
 
 # If extensions (or modules to document with autodoc) are in another directory,
