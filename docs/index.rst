@@ -1,5 +1,5 @@
 =====================================
-ocean_data_tools
+all_my_tools
 =====================================
 
 Brief info
@@ -20,5 +20,5 @@ Brief info
    :maxdepth: 2
    :caption: Help and Reference
 
-   GitLab Repo <https://github.com/luke-gregor/OceanDataTools>
+   GitLab Repo <https://github.com/lukegre/all_my_code>
    contributing
