@@ -28,7 +28,8 @@ Just a few examples of functions that might be useful. This is not a complete li
 The functions themselves are quite well documented. 
 
 
-**NOTE: these examples are out of data**
+**WARNING: these examples are out of date**
+
 .. code-block:: python
 
    import ocean_data_tools as odt  # will import xarray methods/accessors too
