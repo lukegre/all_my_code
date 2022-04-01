@@ -64,3 +64,81 @@ def download(url, path='.', fname=None, progress=True, decompress=True, **kwargs
             return flist[0]
     else:
         return flist
+
+
+def get_url_list(
+    url,
+    username=None,
+    password=None,
+    use_cache=True,
+    cache_path="./_urls_{hash}.cache",
+    **kwargs,
+):
+    """If a url has a wildcard (*) value, remote files will be searched.
+
+    Leverages off the `fsspec` package. This doesn't work for all HTTP urls.
+
+    Parameters
+    ----------
+    url : [str]
+        If a url has a wildcard (*) value, remote files will be
+        searched for
+    username : [str]
+        if required for given url and protocol (e.g. FTP)
+    password : [str]
+        if required for given url and protocol (e.g. FTP)
+    cache_path : [str]
+        the path where the cached files will be stored. Has a special 
+        case where `{hash}` will be replaced with a hash based on
+        the URL.
+    use_cache : [bool]
+        if there is a file with cached remote urls, then
+        those values will be returned as a list
+
+    Returns:
+        list: a sorted list of urls
+    """
+    from pathlib import Path as posixpath
+    from urllib.parse import urlparse
+    import fsspec
+
+    if "*" not in url:
+        return [url]
+
+    if use_cache:
+        cache_path = posixpath(cache_path)
+        if cache_path.is_file():
+            with open(cache_path, "r") as file:
+                flist = file.read().split("\n")
+            return sorted(flist)
+
+    parsed_url = urlparse(url)
+    protocol = parsed_url.scheme
+    host = parsed_url.netloc
+    path = parsed_url.path
+
+    props = {"protocol": protocol}
+    if not protocol.startswith("http"):
+        props.update({"host": host})
+    if username is not None:
+        props["username"] = username
+    if password is not None:
+        props["password"] = password
+
+    fs = fsspec.filesystem(**props)
+    if protocol.startswith("http"):
+        path = f"{protocol}://{host}/{path}"
+
+    try:
+        flist = fs.glob(path)
+    except AttributeError:
+        raise FileNotFoundError(f"The given url does not exist: {url}")
+    except TypeError:
+        raise KeyError(
+            f"The host {protocol}://{host} does not accept username/password"
+        )
+
+    if not protocol.startswith("https"):
+        flist = [f"{protocol}://{host}{f}" for f in fs.glob(path)]
+
+    return sorted(flist)
