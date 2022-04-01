@@ -5,9 +5,10 @@ from . import viz
 from .munging import conform
 from . import stats
 from . import files
+from . import analyse
 
 try:
-    __version__ = get_distribution("ocean_data_tools").version
+    __version__ = get_distribution("all_my_code").version
 except DistributionNotFound:
     __version__ = "version_undefined"
 del get_distribution, DistributionNotFound

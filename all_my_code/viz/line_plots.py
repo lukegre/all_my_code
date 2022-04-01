@@ -56,7 +56,6 @@ def plot_time_series(xda, ax=None, label_spacing=0.02, **kwargs):
 
 def style_line_subplot(ax, add_zero_line=True, xlim=None, y_range=None):
     import numpy as np
-    import pandas as pd
     
     if ax is None:
         ax = plt.gca()
@@ -102,6 +101,9 @@ def annotate_line(line, xloc, label=None, **kwargs):
     next to the line at the given x-location. Means that 
     y-loc does not have to be specified. 
     """
+    import numpy as np
+    from ..munging.date_utils import convert_datestring_to_datetime
+
     if label is None:
         label = line.get_label()
         
