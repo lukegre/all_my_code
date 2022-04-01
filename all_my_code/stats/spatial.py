@@ -26,7 +26,7 @@ def convolve(da, kernel=None, fill_nans=False, verbose=True):
             xda.values, kernel, preserve_nan=preserve_nan, boundary="wrap"
         )
         return convolved
-    ndims = len(xda.dims)
+    ndims = len(da.dims)
     preserve_nan = not fill_nans
 
     if kernel is None:
@@ -50,19 +50,19 @@ def convolve(da, kernel=None, fill_nans=False, verbose=True):
         )
 
     if ndims == 2:
-        convolved = _convlve2D(xda, kernel, preserve_nan)
+        convolved = _convlve2D(da, kernel, preserve_nan)
     elif ndims == 3:
         convolved = []
-        for t in range(xda.shape[0]):
+        for t in range(da.shape[0]):
             if verbose:
                 print(".", end="")
-            convolved += (_convlve2D(xda[t], kernel, preserve_nan),)
-        convolved = xr.concat(convolved, dim=xda.dims[0])
+            convolved += (_convlve2D(da[t], kernel, preserve_nan),)
+        convolved = xr.concat(convolved, dim=da.dims[0])
 
     kern_size = kernel.shape
     convolved.attrs["description"] = (
         "same as `{}` but with {}x{}deg (lon x lat) smoothing using "
         "astropy.convolution.convolve"
-    ).format(xda.name, kern_size[0], kern_size[1])
+    ).format(da.name, kern_size[0], kern_size[1])
     return convolved
 

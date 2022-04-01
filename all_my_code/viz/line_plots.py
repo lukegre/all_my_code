@@ -82,3 +82,49 @@ def style_line_subplot(ax, add_zero_line=True, xlim=None, y_range=None):
         ax.set_ylim(low, upp)
         
     return ax
+
+
+def get_parent_axes_from_line_obj(line):
+    """
+    Will get the axes from a given line object
+    """
+    fig = line.get_figure()
+    subplots = fig.get_axes()
+    
+    for ax in subplots:
+        if line in ax.get_lines():
+            return ax
+
+        
+def annotate_line(line, xloc, label=None, **kwargs):
+    """
+    takes the line object and it's label. Places that label
+    next to the line at the given x-location. Means that 
+    y-loc does not have to be specified. 
+    """
+    if label is None:
+        label = line.get_label()
+        
+    if isinstance(xloc, str):
+        xloc = convert_datestring_to_datetime(xloc)
+    
+    fig = line.get_figure()
+    ax = get_parent_axes_from_line_obj(line)
+    
+    x, y = line.get_data()
+    xdif = abs(x - xloc)
+    
+    i = np.nanargmin(xdif)
+    x = x[i]
+    y = y[i]
+    
+    lw = line.get_lw()
+    fw = fig.get_figwidth()
+    aw = ax.get_position().width
+    
+    if 'color' not in kwargs:
+        kwargs['color'] = line.get_color()
+    
+    text = ax.text(x, y, label, **kwargs)
+    
+    return text
