@@ -1,4 +1,4 @@
-def download(url, path='.', fname=None, progress=True, decompress=True, **kwargs):
+def download_file(url, path='.', fname=None, progress=True, decompress=True, **kwargs):
     """
     A simple wrapper around the pooch package that makes downloading files easier
     
@@ -66,7 +66,7 @@ def download(url, path='.', fname=None, progress=True, decompress=True, **kwargs
         return flist
 
 
-def get_url_list(
+def download_flist_from_url(
     url,
     username=None,
     password=None,

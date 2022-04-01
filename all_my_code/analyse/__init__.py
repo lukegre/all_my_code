@@ -1,2 +1,2 @@
 from .pco2_seasonal_cycle import fit_seasonal_cycle
-from .time_of_emergence import time_of_emergence
+from . import time_of_emergence
