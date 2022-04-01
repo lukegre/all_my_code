@@ -3,11 +3,11 @@ Contribution Guide
 =====================
 
 Contributions are highly welcomed and appreciated.  Every little help counts,
-so do not hesitate! You can make a high impact on ``OceanDataTools`` just by using it and
-reporting `issues <https://github.com/luke-gregor/OceanDataTools/issues>`__.
+so do not hesitate! You can make a high impact on ``all_my_tools`` just by using it and
+reporting `issues <https://github.com/luke-gregor/all_my_tools/issues>`__.
 
 The following sections cover some general guidelines
-regarding development in ``OceanDataTools`` for maintainers and contributors.
+regarding development in ``all_my_tools`` for maintainers and contributors.
 
 Please also review our `Code of Conduct <code_of_conduct.html>`__.
 
@@ -28,7 +28,7 @@ Feature requests and feedback
 
 We are eager to hear about your requests for new features and any suggestions about the
 API, infrastructure, and so on. Feel free to submit these as
-`issues <https://github.com/luke-gregor/OceanDataTools/issues/new>`__ with the label "feature request."
+`issues <https://github.com/luke-gregor/all_my_tools/issues/new>`__ with the label "feature request."
 
 Please make sure to explain in detail how the feature should work and keep the scope as
 narrow as possible. This will make it easier to implement in small PRs.
@@ -39,14 +39,14 @@ narrow as possible. This will make it easier to implement in small PRs.
 Report bugs
 -----------
 
-Report bugs for ``OceanDataTools`` in the `issue tracker <https://github.com/luke-gregor/OceanDataTools/issues>`_
+Report bugs for ``all_my_tools`` in the `issue tracker <https://github.com/luke-gregor/all_my_tools/issues>`_
 with the label "bug".
 
 If you are reporting a bug, please include:
 
 * Your operating system name and version.
 * Any details about your local setup that might be helpful in troubleshooting,
-  specifically the Python interpreter version, installed libraries, and ``OceanDataTools``
+  specifically the Python interpreter version, installed libraries, and ``all_my_tools``
   version.
 * Detailed steps to reproduce the bug.
 
@@ -59,7 +59,7 @@ that is a very useful commit to make as well, even if you cannot fix the bug its
 Fix bugs
 --------
 
-Look through the `GitHub issues for bugs <https://github.com/luke-gregor/OceanDataTools/labels/bug>`_.
+Look through the `GitHub issues for bugs <https://github.com/luke-gregor/all_my_tools/labels/bug>`_.
 
 Talk to developers to find out how you can fix specific bugs.
 
@@ -70,16 +70,16 @@ Preparing Pull Requests
 
 
 #. Fork the
-   `OceanDataTools GitHub repository <https://github.com/luke-gregor/OceanDataTools>`__.  It's
-   fine to use ``OceanDataTools`` as your fork repository name because it will live
+   `all_my_tools GitHub repository <https://github.com/luke-gregor/all_my_tools>`__.  It's
+   fine to use ``all_my_tools`` as your fork repository name because it will live
    under your user.
 
 #. Clone your fork locally using `git <https://git-scm.com/>`_, connect your repository
    to the upstream (main project), and create a branch::
 
-    $ git clone git@github.com:YOUR_GITHUB_USERNAME/OceanDataTools.git
-    $ cd OceanDataTools
-    $ git remote add upstream git@github.com:luke-gregor/OceanDataTools.git
+    $ git clone git@github.com:YOUR_GITHUB_USERNAME/all_my_tools.git
+    $ cd all_my_tools
+    $ git remote add upstream git@github.com:luke-gregor/all_my_tools.git
 
     # now, to fix a bug or add feature create your own branch off "master":
 
@@ -91,13 +91,13 @@ Preparing Pull Requests
 #. Install dependencies into a new conda environment::
 
     $ conda env update -f ci/environment-dev-3.6.yml
-    $ conda activate OceanDataTools-dev
+    $ conda activate all_my_tools-dev
 
-#. Make an editable install of OceanDataTools by running::
+#. Make an editable install of all_my_tools by running::
 
     $ pip install -e .
 
-#. Install `pre-commit <https://pre-commit.com>`_ and its hook on the ``OceanDataTools`` repo::
+#. Install `pre-commit <https://pre-commit.com>`_ and its hook on the ``all_my_tools`` repo::
 
      $ pip install --user pre-commit
      $ pre-commit install
@@ -107,7 +107,7 @@ Preparing Pull Requests
    https://pre-commit.com/ is a framework for managing and maintaining multi-language pre-commit
    hooks to ensure code-style and code formatting is consistent.
 
-    Now you have an environment called ``OceanDataTools-dev`` that you can work in.
+    Now you have an environment called ``all_my_tools-dev`` that you can work in.
     You’ll need to make sure to activate that environment next time you want
     to use it after closing the terminal or your system.
 
@@ -124,11 +124,11 @@ Preparing Pull Requests
 
    Now running tests is as simple as issuing this command::
 
-    $ pytest OceanDataTools
+    $ pytest all_my_tools
 
    Check that your contribution is covered by tests and therefore increases the overall test coverage::
 
-    $ coverage run --source OceanDataTools -m py.test
+    $ coverage run --source all_my_tools -m py.test
     $ coverage report
     $ coveralls
 
@@ -149,17 +149,17 @@ Preparing Pull Requests
      alphabetical order.
 
  #. Add yourself to the
-    `contributors <https://OceanDataTools.readthedocs.io/en/latest/contributors.html>`_
+    `contributors <https://all_my_tools.readthedocs.io/en/latest/contributors.html>`_
     list via ``docs/source/contributors.rst``.
 
 #. Finally, submit a pull request through the GitHub website using this data::
 
-    head-fork: YOUR_GITHUB_USERNAME/OceanDataTools
+    head-fork: YOUR_GITHUB_USERNAME/all_my_tools
     compare: your-branch-name
 
-    base-fork: luke-gregor/OceanDataTools
+    base-fork: luke-gregor/all_my_tools
     base: master
 
 Note that you can create the Pull Request while you're working on this. The PR will update
-as you add more commits. ``OceanDataTools`` developers and contributors can then review your code
+as you add more commits. ``all_my_tools`` developers and contributors can then review your code
 and offer suggestions.

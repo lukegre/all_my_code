@@ -1,5 +1,0 @@
-[report]
-omit =
-    setup.py
-    ocean_data_tools/__main__.py
-    tests/*
