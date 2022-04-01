@@ -50,7 +50,7 @@ class processor:
 
         version = ".{__version__}" if __version__ else ""
         now = Timestamp.today().strftime("%Y-%m-%dT%H:%M")
-        prefix = f"[OceanDataTools{version}@{now}] "
+        prefix = f"[ODT{version}@{now}] "
         msg = prefix + self.msg
         if "history" not in xds.attrs:
             xds.attrs["history"] = msg
