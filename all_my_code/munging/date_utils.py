@@ -85,7 +85,8 @@ def datestring_to_datetime(string, return_date=False):
     if the day < 12. 
     """
     import re
-    from datetime import datetime
+    from . date_utils import convert_datestring_to_datetime
+    from pandas import to_datetime
     
     if isinstance(string, list):
         return [convert_datestring_to_datetime(s) for s in string]
@@ -123,7 +124,7 @@ def datestring_to_datetime(string, return_date=False):
             out += 1
             
     try:
-        date = pd.to_datetime(string, format=best_pattern)
+        date = to_datetime(string, format=best_pattern)
         return date.to_numpy()
     except ValueError as e:
         return string

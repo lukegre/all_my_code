@@ -14,7 +14,7 @@
 
 from pkg_resources import get_distribution
 
-release = get_distribution('glidertools').version
+release = get_distribution('all_my_tools').version
 version = '.'.join(release.split('.')[:2])
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -58,7 +58,7 @@ napoleon_numpy_docstring = True
 master_doc = 'index'
 
 # General information about the project.
-project = u'Ocean Data Tools'
+project = u'All My Tools'
 copyright = u'copyright goes here'
 
 # The version info for the project you're documenting, acts as replacement for

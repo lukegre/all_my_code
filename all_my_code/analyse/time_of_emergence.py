@@ -2,6 +2,7 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 
+
 def calc_trend(poly):
     """
     Calculates the trend given the output from fit_poly.
@@ -20,6 +21,7 @@ def calc_trend(poly):
     out = xr.concat(out, 'degree').sum('degree').where(lambda x: x!=0)
     return out
 
+
 def fit_poly_ds(ds, order=1):
     """
     A wrapper for the polyfit function for xarray. Makes fitting monthly data
@@ -34,6 +36,7 @@ def fit_poly_ds(ds, order=1):
     poly = poly.rename(**{k: k.replace('_polyfit_coefficients', '') for k in poly})
     poly['time'] = ds.time
     return poly
+
 
 def corr_lag_ds(ds, lag=1, dim='time'):
     from joblib import Parallel, delayed
@@ -50,7 +53,8 @@ def corr_lag_ds(ds, lag=1, dim='time'):
     
     return out
 
-def time_of_emergence(ds, mode_of_var='noise', dim='time'):
+
+def weatherhead(ds, mode_of_var='noise', dim='time'):
     """
     Time of Emergence is the time it takes to detect a signal relative to 
     a mode of variability. 

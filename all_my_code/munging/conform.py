@@ -3,7 +3,7 @@ import xarray as xr
 from functools import wraps as _wraps
 
 try:
-    __version__ = get_distribution("ocean_data_tools").version
+    __version__ = get_distribution("all_my_tools").version
 except DistributionNotFound:
     __version__ = ""
 del get_distribution, DistributionNotFound
@@ -19,7 +19,7 @@ def apply_process_pipeline(ds, *funcs):
     return ds
 
 
-class processor:
+class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
         self.func = func
         self.name = func.__name__
@@ -61,7 +61,7 @@ class processor:
         return ds
 
 
-@processor
+@add_docs_line1_to_attribute_history
 def lon_180W_180E(ds, lon_name='lon'):
     """
     Regrid the data to [-180 : 180] from [0 : 360]
@@ -74,7 +74,7 @@ def lon_180W_180E(ds, lon_name='lon'):
     return ds.assign_coords(**{lon_name: lon180}).sortby(lon_name)
 
 
-@processor
+@add_docs_line1_to_attribute_history
 def lon_0E_360E(ds, lon_name='lon'):
     """
     Regrid the data to [0 : 360] from [-180 : 180] 
@@ -88,7 +88,7 @@ def lon_0E_360E(ds, lon_name='lon'):
     return ds
     
     
-@processor  
+@add_docs_line1_to_attribute_history  
 def coord_05_offset(ds, center=0.5, coord_name='lon'):
     """
     Interpolate data if the grid centers are offset.
@@ -130,7 +130,7 @@ def coord_05_offset(ds, center=0.5, coord_name='lon'):
     return ds
     
     
-@processor
+@add_docs_line1_to_attribute_history
 def transpose_dims(ds, default=['time', 'depth', 'lat', 'lon'], other_dims_before=True):
     """
     Transpose dimensions to [time, depth, lat, lon]. 
@@ -155,7 +155,7 @@ def transpose_dims(ds, default=['time', 'depth', 'lat', 'lon'], other_dims_befor
     return ds
 
 
-@processor
+@add_docs_line1_to_attribute_history
 def correct_coord_names(
     ds, 
     match_dict=dict(
@@ -190,17 +190,43 @@ def correct_coord_names(
     return ds
 
 
+@add_docs_line1_to_attribute_history
+def interpolate_1deg(xds, method="linear"):
+    """
+    interpolate the data to 1 degree resolution [-89.5 : 89.5] x [-179.5 : 179.5]
+    """
+    from warnings import warn
+    from numpy import arange
+
+    if xds.lon.max() > 180:
+        warn("Longitude range is from 0 to 360, interpolate_1deg only works for -180 to 180")
+
+    attrs = xds.attrs
+    xds = (
+        xds.interp(lat=arange(-89.5, 90), lon=arange(-179.5, 180), method=method)
+        # filling gaps due to interpolation along 180deg
+        .roll(lon=180, roll_coords=False)
+        .interpolate_na(dim="lon", limit=3)
+        .roll(lon=-180, roll_coords=False)
+    )
+
+    xds.attrs = attrs
+
+    return xds
+
+
 _func_registry_both = [
     lon_0E_360E,
     lon_180W_180E,
+    interpolate_1deg,
     coord_05_offset,
     transpose_dims,
     correct_coord_names,
 ]
 
-@xr.register_dataset_accessor("prep")
-@xr.register_dataarray_accessor("prep")
-class PreperationBoth(object):
+@xr.register_dataset_accessor("conform")
+@xr.register_dataarray_accessor("conform")
+class DataConform(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 

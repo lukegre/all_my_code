@@ -4,4 +4,9 @@ tqdm
 numpy
 xarray
 pandas
+joblib
 PyYAML
+crossref
+pooch
+fuzzywuzzy
+munch

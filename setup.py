@@ -24,17 +24,17 @@ CLASSIFIERS = [
 ]
 
 setup(
-    name="OceanDataTools",
+    name="all_my_tools",
     author="Luke Gregor",
     author_email="lukegre@gmail.com",
     description=(
         "tools that I've developed over time that form a part of my daily "
         "workflow. Thought good to share."
     ),
-    keywords="OceanDataTools",
+    keywords="Oceanography;xarray",
     license="GNUv3",
     classifiers=CLASSIFIERS,
-    url="https://github.com/luke-gregor/OceanDataTools",
+    url="https://github.com/lukegre/all_my_tools",
     use_scm_version={
         "version_scheme": "python-simplified-semver",
         "local_scheme": "no-local-version",
@@ -42,7 +42,7 @@ setup(
     long_description=long_description,
     packages=find_packages(),
     install_requires=install_requires,
-    test_suite="ocean_data_tools/tests",
+    test_suite="all_my_tools/tests",
     tests_require=test_requirements,
     setup_requires=[
         "setuptools_scm",

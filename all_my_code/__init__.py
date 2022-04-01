@@ -2,7 +2,7 @@ from pkg_resources import DistributionNotFound, get_distribution
 
 # from . import _xarray_stats  # xr.accessors should not be visible
 from . import viz
-from .munging import conform
+from . import munging
 from . import stats
 from . import files
 from . import analyse

@@ -8,8 +8,6 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-docstring-first
-      - id: check-yaml
-      # - id: no-commit-to-branch
       - id: debug-statements
       - id: check-merge-conflict
 
@@ -30,9 +28,3 @@ repos:
       hooks:
       -   id: isort
           args: ["--settings-path", "setup.cfg"]
-
-  # -   repo: https://github.com/PyCQA/doc8
-  #     rev: 0.8.1rc2
-  #     hooks:
-  #     -   id: doc8
-  #         args: ["--config", "setup.cfg"]
