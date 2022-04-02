@@ -1,3 +1,4 @@
 from .spatial import regional_aggregation, convolve
-from . import trends
+from . import time_series
 from . import smoothen
+from . import forecast
