@@ -4,6 +4,7 @@ import xarray as xr
 
 
 @xr.register_dataset_accessor("to_netcdf_with_compression")
+@xr.register_dataarray_accessor("to_netcdf_with_compression")
 class Save(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
@@ -34,6 +35,17 @@ class Save(object):
         import os
 
         ds = self._obj
+        
+        if isinstance(ds, xr.DataArray):
+            try:
+                ds = ds.to_dataset()
+            except ValueError as E:
+                msg = (
+                    'DataArray has no name and cannot be converted to xr.Dataset. '
+                    'please assign a name with  xr.DataArray.rename(new_name)'
+                )
+                raise ValueError(msg)
+
 
         # function will return an error if the file exists and overwrite is False
         if os.path.exists(sname) and not overwrite:

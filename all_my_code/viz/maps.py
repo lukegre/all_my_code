@@ -48,6 +48,9 @@ def map_subplot(
     round=rcMaps['round'],
     land_color=rcMaps['land_color'],
     coast_res=rcMaps['coast_res'],
+    fig=None,
+    dpi=90, 
+    figsize=None,
     **kwargs
 ):
     """

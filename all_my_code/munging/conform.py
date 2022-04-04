@@ -47,7 +47,7 @@ class add_docs_line1_to_attribute_history(object):
         version = ".{__version__}" if __version__ else ""
         
         now = Timestamp.today().strftime("%y%m%d")
-        prefix = f"(ODT{version}@{now}) "
+        prefix = f"[amc{version}@{now}] "
         msg = prefix + self.msg
         
         hist = ds.attrs.get(key, '')
@@ -215,13 +215,36 @@ def interpolate_1deg(xds, method="linear"):
     return xds
 
 
-_func_registry_both = [
+@add_docs_line1_to_attribute_history
+def time_center_monthly(ds, center_day=15, time_name='time'):
+    """
+    Date centered on a given date (default 15th)
+    
+    Data must be monthly for this function to work
+    """
+    from pandas import Timedelta as timedelta
+    from . date_utils import datetime64ns_to_lower_order_datetime
+    
+    time = datetime64ns_to_lower_order_datetime(ds[time_name].values)
+    
+    if "[M]" not in str(time.dtype):
+        raise ValueError("data time variable is not monthly")
+    
+    delta_days = timedelta(f'{center_day - 1}D')
+    
+    ds = ds.assign_coords(time=time.astype('datetime64[D]') + delta_days)
+    
+    return ds
+
+
+_func_registry = [
     lon_0E_360E,
     lon_180W_180E,
     interpolate_1deg,
     coord_05_offset,
     transpose_dims,
     correct_coord_names,
+    time_center_monthly,
 ]
 
 @xr.register_dataset_accessor("conform")
@@ -230,12 +253,12 @@ class DataConform(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-        for func in _func_registry_both:
-            setattr(self, func.func.__name__, self._make_accessor_func(func))
+        for wrapped in _func_registry:
+            setattr(self, wrapped.func.__name__, self._make_accessor_func(wrapped))
 
-    def _make_accessor_func(self, func):
-        @_wraps(func)
+    def _make_accessor_func(self, wrapped):
+        @_wraps(wrapped.func)
         def run_func(*args, **kwargs):
-            return func(self._obj, *args, **kwargs)
+            return wrapped(self._obj, *args, **kwargs)
 
         return run_func
