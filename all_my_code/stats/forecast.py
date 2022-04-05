@@ -51,8 +51,6 @@ def trend_and_seasonal_cycle(da, x, groupby_dim='time.month', deg=1):
     return forecast
 
 
-
-
 @xr.register_dataarray_accessor('forecast')
 @xr.register_dataset_accessor('forecast')
 class Forecast(object):

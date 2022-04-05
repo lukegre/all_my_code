@@ -25,31 +25,16 @@ def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
     return trends
 
 
-def linear_slope(da, dim='time'):
+def slope(da, dim='time'):
     
     da = da.assign_coords(time=lambda x: np.arange(x[dim].size))
     slope = (
-        da.coefs('time', 1, skipna=False)
-        .coefs_coefficients[0]
+        da.polyfit('time', 1, skipna=False)
+        .polyfit_coefficients[0]
         .drop('degree')
         .assign_attrs(units='units/year'))
     
     return slope
-
-     
-def coefs(da, dim='time', deg=1):
-    """
-    A wrapper for coefs. Has default inputs and removes 
-    coefs_coefficients from the name
-    """
-
-    coefs = da.coefs(dim, deg=deg)
-    if isinstance(da, xr.DataArray):
-        coefs = coefs.coefs_coefficients
-    elif isinstance(da, xr.Dataset):
-        names = {k: k.replace('_coefs_coefficients', '') for k in coefs}
-        coefs = coefs.rename(names)
-    return coefs
 
 
 def climatology(da, tile=False, groupby_dim='time.month'):
@@ -76,7 +61,7 @@ def climatology(da, tile=False, groupby_dim='time.month'):
     return clim
 
 
-def trend(da, dim='time', deg=1):
+def trend(da, dim='time', deg=1, coef=None):
     """
     Calculates the trend over the given dimension
 
@@ -90,13 +75,17 @@ def trend(da, dim='time', deg=1):
         the dimension along which the trend will be calculated
     deg : int [1]
         the order of the polynomial used to fit the data
+    coef : xr.DataArray
+        the coefficients of the polynomial fit if precalculated
+        to save on computation time
 
     Returns
     -------
     trend : predicted trend data over the given period and dimensions
     """
 
-    coef = da.coefs(dim=dim, deg=deg).coefs_coefficients
+    if coef is None:
+        coef = da.polyfit(dim=dim, deg=deg).polyfit_coefficients
 
     # use the coeficients to predict along the dimension
     trend = xr.polyval(da[dim], coef)
@@ -112,7 +101,7 @@ def trend(da, dim='time', deg=1):
     return trend
 
 
-def detrend(da, dim='time', deg=1):
+def detrend(da, dim='time', deg=1, coef=None):
     """
     Removes the trend over the given dimension using the trend function
 
@@ -122,15 +111,101 @@ def detrend(da, dim='time', deg=1):
         the dimension along which the trend will be calculated
     deg : int [1]
         the order of the polynomial used to fit the data
+    coef : xr.DataArray
+        the coefficients of the polynomial fit if precalculated
+        to save on computation time
 
     Returns
     -------
     detrended : the trends of the input at the given order
     """
 
-    da_detrend = da - trend(da, dim=dim, deg=deg)
+    da_detrend = da - trend(da, dim=dim, deg=deg, coef=coef)
 
     return da_detrend
+
+
+def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
+    """
+    Perform full linear regression with all stats (coefs, r2, pvalue, rmse, +)
+
+    Only slightly slower than using xr.DataArray.polyfit, but returns
+    all stats (if full=True)
+
+    Parameters
+    ----------
+    y : xr.DataArray
+        the dependent variable
+    x : xr.DataArray
+        if None, then dim will be used, otherwise x will be used
+    dim : str [time]
+        the dimension along which the trend will be calculated
+    deg : int [1]
+        the order of the polynomial used to fit the data
+    full : bool [True]
+        if True, the full regression results will be returned
+
+    Returns
+    -------
+    linregress : xr.DataArray
+        the linear regression results containing coefficients, 
+        rsquared, pvalue, and rmse 
+    """
+    from scipy.stats import beta
+    from xarray import DataArray
+
+    skipna = True
+    # total sum of squares (use this for non-agg dimensions)
+    tss = np.square(y - y.mean(dim)).sum(dim)
+    
+    if x is not None:
+        if isinstance(x, DataArray):
+            xx = x.munging.drop_0d_coords().dropna(dim)
+            xname = x.name
+        else:
+            xx = DataArray(
+                data=x, 
+                dims=[dim], 
+                coords={dim: y[dim]})
+            xname = 'x'
+    
+        # create regession array
+        coords = {k: tss[k].values for k in tss.coords}
+        coords[xname] = xx.values
+        yy = xr.DataArray(
+            data=y.sel(**{dim: xx[dim]}).values, 
+            dims=[xname] + list(tss.dims),
+            coords=coords)
+        dim = xname
+    else:
+        assert dim in y.dims, 'given dimension is not in y'
+        yy = y
+
+    # calculate polyfit
+    fit = yy.polyfit(dim, deg, full=full)
+    
+    if not full:
+        return fit
+    
+    # residual sum of squares
+    rss = fit.polyfit_residuals
+    
+    fit['polyfit_rsquared'] = (1 - (rss / tss)).assign_attrs(description='pearsons r-value squared')
+    r = fit['polyfit_rsquared']**0.5
+
+    n = yy[dim].size
+    # creating the distribution for pvalue
+    dist = beta(n/2 - 1, n/2 - 1, loc=-1, scale=2)
+    
+    # calculating R value
+    fit['polyfit_pvalue'] = (r * np.nan).fillna(2 * dist.cdf(-abs(r)))
+    fit['polyfit_rmse'] = (rss / n)**0.5
+
+    if drop_polyfit_name:
+        rename_dict = {k: k.replace('polyfit_', '') for k in fit}
+        fit = fit.rename(rename_dict)
+
+    return fit
 
 
 @xr.register_dataarray_accessor('time_series')
@@ -138,14 +213,14 @@ def detrend(da, dim='time', deg=1):
 class TimeSeries(object):
     def __init__(self, xarray_object):
         self._obj = xarray_object
+
+    @_wraps(linregress)
+    def linregress(self, **kwargs):
+        return linregress(self._obj, **kwargs)
         
-    @_wraps(linear_slope)
-    def linear_slope(self, **kwargs):
-        return linear_slope(self._obj, **kwargs)
-    
-    @_wraps(coefs)
-    def coefs(self, **kwargs):
-        return coefs(self._obj, **kwargs)
+    @_wraps(slope)
+    def slope(self, **kwargs):
+        return slope(self._obj, **kwargs)
     
     @_wraps(climatology)
     def climatology(self, **kwargs):

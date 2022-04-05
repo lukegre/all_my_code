@@ -65,3 +65,4 @@ target/
 .vscode/*
 junit.xml
 **/.ipynb_checkpoints/**
+notebooks/**

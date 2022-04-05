@@ -1,71 +1,96 @@
+from xarray import register_dataarray_accessor as _register_dataarray_accessor
 import xarray as xr
 import numpy as np
+from functools import wraps as _wraps
 
 
-def regional_aggregation(xda, region_mask, weights=None, func='mean'):
-    
+def avg_area_weighted(da, dims=['lat', 'lon']):
+    """
+    Calculates the area weighted average for a data array
+
+    Assumes latitude and longitude are named "lat", "lon" respectively
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        The data array to average
+
+    Returns
+    -------
+    xr.DataArray
+        The weighted average
+    """
+
+    area = da.spatial.area()
+    return da.weighted(area).mean(dims)
+
+
+def aggregate_region(xda, region_mask=None, region_names=None, weights='area', func='mean'):
+    """
+    Average a data array over a region mask with area weighting
+
+    Parameters
+    ----------
+    xda : xr.DataArray
+        The data array to aggregate that matches the shape of region_mask
+        Assumes that latitudes are named lat, and longitudes are named lon
+    region_mask : xr.DataArray
+        A mask array with the same shape as xda that defines the regions
+        to aggregate over
+    weights : xr.DataArray, [area]
+        A data array with the same shape as the mask that is used to weight
+        the aggregation. If None, all values are weighted equally. If 'area',
+        then the area will be calculated from region_mask.
+    func : str [mean]
+        The function to use for aggregation. Must be a method of a 
+        weighted_mean object.
+
+    Returns
+    -------
+    xr.DataArray
+        The aggregated data array
+    """
+    from warnings import warn
+
+    assert isinstance(region_mask, xr.DataArray), "region_mask must be a DataArray"
+    assert region_mask.dtype == np.int_, "region_mask must be an integer array"
+    if region_mask.ndim > 2:
+        warn("Your mask array has more than two dimensions. This might take some time")
+
+    # first make sure that weights is a string before we do the string compare
+    if isinstance(weights, str):
+        # areas will be weighted be area 
+        if (weights == 'area'):
+            weights = region_mask.spatial.area()
+
+    groups = xda.groupby(region_mask)
+
+    if region_names is not None:
+        assert len(groups) == len(region_names), "Number of groups does not match number of region names"
+
     regional = []
-    for r, da in xda.groupby(region_mask):
+    for r, da in groups:
         da = da.unstack()
         if weights is not None:
             da = da.weighted(weights)
-        da = getattr(da, func)(['lat', 'lon'])
+        func_ = getattr(da, func, None)
+        if func_ is not None:
+            da = func_(['lat', 'lon'])
+        else:
+            raise ValueError(
+                f"{func} is not available as an aggregation function for weighted arrays. "
+                f"Try setting weights to None"
+                )
         da = da.assign_coords(region=r)
         regional += da,
         
     regional = xr.concat(regional, 'region')
+
+    if region_names is not None:
+        regional = regional.assign_coords(region=region_names)
+
     return regional
     
-
-def convolve(da, kernel=None, fill_nans=False, verbose=True):
-    from astropy import convolution as conv
-    
-    def _convlve2D(xda, kernel, preserve_nan):
-        convolved = xda.copy()
-        convolved.values = conv.convolve(
-            xda.values, kernel, preserve_nan=preserve_nan, boundary="wrap"
-        )
-        return convolved
-    ndims = len(da.dims)
-    preserve_nan = not fill_nans
-
-    if kernel is None:
-        kernel = conv.Gaussian2DKernel(x_stddev=2)
-    elif isinstance(kernel, list):
-        if len(kernel) == 2:
-            kernel_size = kernel
-            for i, ks in enumerate(kernel_size):
-                kernel_size[i] += 0 if (ks % 2) else 1
-            kernel = conv.kernels.Box2DKernel(max(kernel_size))
-            kernel._array = kernel._array[: kernel_size[0], : kernel_size[1]]
-        else:
-            raise UserWarning(
-                "If you pass a list to `kernel`, must have a length of 2"
-            )
-    elif kernel.__class__.__base__ == conv.core.Kernel2D:
-        kernel = kernel
-    else:
-        raise UserWarning(
-            "kernel needs to be list or astropy.kernels.Kernel2D base type"
-        )
-
-    if ndims == 2:
-        convolved = _convlve2D(da, kernel, preserve_nan)
-    elif ndims == 3:
-        convolved = []
-        for t in range(da.shape[0]):
-            if verbose:
-                print(".", end="")
-            convolved += (_convlve2D(da[t], kernel, preserve_nan),)
-        convolved = xr.concat(convolved, dim=da.dims[0])
-
-    kern_size = kernel.shape
-    convolved.attrs["description"] = (
-        "same as `{}` but with {}x{}deg (lon x lat) smoothing using "
-        "astropy.convolution.convolve"
-    ).format(da.name, kern_size[0], kern_size[1])
-    return convolved
-
 
 def pca_decomp(
     xda, n_components=10, return_plots=False, return_pca=False, **pca_kwargs,
@@ -73,6 +98,8 @@ def pca_decomp(
     """
     Apply a principle component decomposition to a dataset with
     time, lat, lon axes.
+
+    Should perhaps use the Eof package in Python
     """
     from sklearn.decomposition import PCA
 
@@ -208,3 +235,104 @@ def _pca_plot(xds_pca):
     fig.tight_layout()
 
     return fig
+
+
+def earth_radius(lat):
+    """Calculate the radius of the earth for a given latitude
+
+    Args:
+        lat (array, float): latitude value (-90 : 90)
+
+    Returns:
+        array: radius in metres
+    """
+    from numpy import cos, deg2rad, sin
+
+    lat = deg2rad(lat)
+    a = 6378137
+    b = 6356752
+    r = (
+        ((a ** 2 * cos(lat)) ** 2 + (b ** 2 * sin(lat)) ** 2)
+        / ((a * cos(lat)) ** 2 + (b * sin(lat)) ** 2)
+    ) ** 0.5
+
+    return r
+
+
+def area_grid(lat, lon, return_dataarray=False):
+    """Calculate the area of each grid cell for given lats and lons
+
+    Args:
+        lat (array): latitudes in decimal degrees of length N
+        lon (array): longitudes in decimal degrees of length M
+        return_dataarray (bool, optional): if True returns xr.DataArray, else array
+
+    Returns:
+        array, xr.DataArray: area of each grid cell in meters
+
+    References:
+        https://github.com/chadagreene/CDT/blob/master/cdt/cdtarea.m
+    """
+    from numpy import cos, deg2rad, gradient, meshgrid
+
+    ylat, xlon = meshgrid(lat, lon)
+    R = earth_radius(ylat)
+
+    dlat = deg2rad(gradient(ylat, axis=1))
+    dlon = deg2rad(gradient(xlon, axis=0))
+
+    dy = dlat * R
+    dx = dlon * R * cos(deg2rad(ylat))
+
+    area = dy * dx
+
+    if not return_dataarray:
+        return area
+    else:
+        from xarray import DataArray
+
+        xda = DataArray(
+            area.T,
+            dims=["lat", "lon"],
+            coords={"lat": lat, "lon": lon},
+            attrs=dict(
+                long_name="Area per pixel",
+                units="m^2",
+                description=(
+                    "Area per pixel as calculated by pySeaFlux. The non-"
+                    "spherical shape of Earth is taken into account."
+                ),
+            ),
+        )
+
+        return xda
+
+
+@_register_dataarray_accessor('spatial')
+class Spatial(object):
+    def __init__(self, da):
+        self._obj = da
+
+    def area(self, lat_name="lat", lon_name="lon"):
+        da = self._obj
+
+        x = da[lon_name].values
+        y = da[lat_name].values
+
+        out = area_grid(y, x, return_dataarray=True)
+
+        name = getattr(da, 'name', 'xr.DataArray')
+        description = out.attrs.get('description', '')
+        description += f' Area calculated from the latitude and longitude coordinates of {name}'
+
+        out.attrs['description'] = description
+        
+        return out
+
+    @_wraps(aggregate_region)
+    def aggregate_region(self, *args, **kwargs):
+        return aggregate_region(self._obj, *args, **kwargs)
+
+    @_wraps(avg_area_weighted)
+    def avg_area_weighted(self, *args, **kwargs):
+        return avg_area_weighted(self._obj, *args, **kwargs)

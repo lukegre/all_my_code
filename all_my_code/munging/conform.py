@@ -237,6 +237,14 @@ def time_center_monthly(ds, center_day=15, time_name='time'):
     return ds
 
 
+@add_docs_line1_to_attribute_history
+def drop_0d_coords(da):
+    """drop the dimensions that are single dimension"""
+    coords_to_drop = [c for c in da.coords if len(da[c].shape) == 0]
+    da_dropped_coords = da.drop(coords_to_drop)
+    return da_dropped_coords
+
+
 _func_registry = [
     lon_0E_360E,
     lon_180W_180E,
@@ -245,10 +253,11 @@ _func_registry = [
     transpose_dims,
     correct_coord_names,
     time_center_monthly,
+    drop_0d_coords,
 ]
 
-@xr.register_dataset_accessor("conform")
-@xr.register_dataarray_accessor("conform")
+@xr.register_dataset_accessor("munging")
+@xr.register_dataarray_accessor("munging")
 class DataConform(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
