@@ -208,6 +208,31 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     return fit
 
 
+def interannual_variability(da, dim='time'):
+    """
+    Calculates the interannual variability of a time series
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        a data array for which you want to calculate the interannual variability
+
+    Returns
+    -------
+    interannual_variability : xr.DataArray
+        the interannual variability of the input
+    """
+
+    # calculate the mean of the data
+    da_annual = da.resample(time='1AS', loffset='182D').mean()
+    da_detrend = da_annual.time_series.detrend()
+
+    # calculate the standard deviation of the data
+    interannual_variability = da_detrend.std(dim)
+
+    return interannual_variability
+
+
 @xr.register_dataarray_accessor('time_series')
 @xr.register_dataset_accessor('time_series')
 class TimeSeries(object):
@@ -237,4 +262,7 @@ class TimeSeries(object):
     @_wraps(rolling_stat_parallel)
     def rolling_stat_parallel(self, *args, **kwargs):
         return rolling_stat_parallel(self._obj, *args, **kwargs)
-        
+
+    @_wraps(interannual_variability)
+    def interannual_variability(self, **kwargs):
+        return interannual_variability(self._obj, **kwargs)
