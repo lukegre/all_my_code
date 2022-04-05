@@ -1,50 +1,23 @@
+import xarray as xr
+from functools import wraps as _wraps
+from . line_plots import plot_ensemble_line_with_std, plot_time_series
+from .hovmoller import plot_zonal_anom
 
-def animate_xda(
-    ax, xda, draw_func=None, dim="time", sname="./animation.mp4", fps=6, **plot_kwargs
-):
-    """
-    NOTE: this function is still in development. Would be
-    nice to have this as a xarray accessor
-    Animate a DataArray along the first dimension.
 
-    Parameters
-    ----------
-    ax : pyplot.Axes
-        The axes object into which you'd like to animate
-    xda : xr.DataArray
-        the given dimension of the array will be iterated
-        over given that the remaining axes is 2D
-    draw_func : callable
-        function that plots a single time slice of the data
-        where a list of changed objects are returned
-    dim : str
-        the dimension over which the image will be iterated
-    sname : str
-        name to save the animation to
-    fps : int
-        frames per second
-    plot_kwargs : {}
-        keyword pairs that will be passed to the plot function
-    """
-    from matplotlib import animation, pyplot
+@xr.register_dataarray_accessor('viz')
+@xr.register_dataset_accessor('viz')
+class VizPlots(object):
+    def __init__(self, xarray_object):
+        self._obj = xarray_object
 
-    def draw(f):
-        print(".", end="")
-        return (xda.isel({dim: f}).plot(ax=ax, **plot_kwargs),)
+    @_wraps(plot_ensemble_line_with_std)
+    def time_series_ensemble(self, **kwargs):
+        return plot_ensemble_line_with_std(self._obj, **kwargs)
 
-    def animate(frame):
-        if draw_func is None:
-            return draw(frame)
-        elif callable(draw_func):
-            return draw_func(frame)
-
-    fig = ax.get_figure()
-    nframes = xda[dim].size
-    anim = animation.FuncAnimation(
-        fig, animate, frames=nframes, blit=True, repeat=False, interval=1000 / fps,
-    )
-
-    anim.save(sname, writer=animation.FFMpegWriter(fps=fps))
-
-    pyplot.close(fig)
-
+    @_wraps(plot_time_series)
+    def time_series(self, **kwargs):
+        return plot_time_series(self._obj, **kwargs)
+        
+    @_wraps(plot_zonal_anom)
+    def zonal_anomally(self, **kwargs):
+        return plot_zonal_anom(self._obj, **kwargs)

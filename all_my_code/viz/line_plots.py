@@ -1,6 +1,27 @@
 from matplotlib import pyplot as plt
 
 
+def plot_ensemble_line_with_std(da, x='time', ax=None, **lineplot_kwargs):
+    from seaborn import lineplot
+    
+    if ax is None:
+        ax = plt.gca()
+        
+    if not getattr(da, 'name', False):
+        name = 'data'
+        da = da.rename(name)
+    else:
+        name = da.name
+    
+    df = da.to_dataframe(name=name).reset_index()
+    
+    props = dict(ci='sd')
+    props.update(lineplot_kwargs)
+    line = lineplot(data=df, x=x, y=name, **props)
+    return line
+    
+
+
 def plot_time_series(xda, ax=None, label_spacing=0.02, **kwargs):
     """
     Plots time on x-axis and other var on y-axis. 
