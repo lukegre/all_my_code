@@ -17,7 +17,7 @@ def plot_ensemble_line_with_std(da, x='time', ax=None, **lineplot_kwargs):
     
     props = dict(ci='sd')
     props.update(lineplot_kwargs)
-    line = lineplot(data=df, x=x, y=name, **props)
+    line = lineplot(ax=ax, data=df, x=x, y=name, **props)
     return line
     
 
