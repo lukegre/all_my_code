@@ -195,7 +195,7 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
             inputs, 
             kwargs=dict(dim=dim, deg=deg, full=full, drop_polyfit_name=False),
             verbose=True)
-            
+
         return xr.merge(outputs)
 
     skipna = True
@@ -248,9 +248,9 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     if drop_polyfit_name:
         rename_dict = {k: k.replace('polyfit_', '') for k in fit}
         fit = fit.rename(rename_dict)
-    elif getattr(y, 'name', False):
-        name = y.name
+    elif name := getattr(y, 'name', False):
         rename_dict = {k: f"{name}_{k}" for k in fit}
+        fit = fit.rename(rename_dict)
 
     return fit
 
