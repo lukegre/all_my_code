@@ -8,7 +8,7 @@ del get_distribution, DistributionNotFound
 
 def get_unwrapped(func):
     def is_wrapped(func):
-        if getattr(func, '__wrapped__', False):
+        if getattr(func, 'func', False):
             return True
         else:
             return False
