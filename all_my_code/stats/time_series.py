@@ -83,10 +83,12 @@ def deseasonalise(da, groupby_dim='time.month'):
 
     dim0, dim1 = groupby_dim.split('.')
     grp = da.groupby(groupby_dim)
-    da_deseasonalised = grp - grp.mean(dim0)
-    da_deseasonalised = da_deseasonalised.assign_attrs(units=da.attrs.get('units', ''))
+    seasonal_cycle = grp.mean(dim0)
+    seasonal_cycle -= seasonal_cycle.mean()
+    deseasonalised = grp - seasonal_cycle
+    deseasonalised = deseasonalised.assign_attrs(units=da.attrs.get('units', ''))
 
-    return da_deseasonalised
+    return deseasonalised
 
 
 @add_docs_line1_to_attribute_history
