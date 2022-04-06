@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 import joblib
 from functools import wraps as _wraps
+from ..utils import add_docs_line1_to_attribute_history
 
 
 def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
@@ -37,9 +38,10 @@ def slope(da, dim='time'):
     return slope
 
 
+@add_docs_line1_to_attribute_history
 def climatology(da, tile=False, groupby_dim='time.month'):
     """
-    calculates the climatology of a time series
+    Calculate the climatology of a time series
 
     Parameters
     ----------
@@ -61,9 +63,36 @@ def climatology(da, tile=False, groupby_dim='time.month'):
     return clim
 
 
+@add_docs_line1_to_attribute_history
+def deseasonalise(da, groupby_dim='time.month'):
+    """
+    Remove the seasonal cycle from the time series
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        a data array for which you want to remove the seasonal cycle
+    groupby_dim : str
+        the dimension to group by
+
+    Returns
+    -------
+    da_deseasonalised : xr.DataArray
+        the time series without the seasonal cycle
+    """
+
+    dim0, dim1 = groupby_dim.split('.')
+    grp = da.groupby(groupby_dim)
+    da_deseasonalised = grp - grp.mean(dim0)
+    da_deseasonalised = da_deseasonalised.assign_attrs(units=da.attrs.get('units', ''))
+
+    return da_deseasonalised
+
+
+@add_docs_line1_to_attribute_history
 def trend(da, dim='time', deg=1, coef=None):
     """
-    Calculates the trend over the given dimension
+    The trend over the given dimension
 
     Will mask nans where all nans along the dimension
 
@@ -101,9 +130,10 @@ def trend(da, dim='time', deg=1, coef=None):
     return trend
 
 
+@add_docs_line1_to_attribute_history
 def detrend(da, dim='time', deg=1, coef=None):
     """
-    Removes the trend over the given dimension using the trend function
+    Remove the trend along the [time] dimension
 
     Parameters
     ----------
@@ -208,9 +238,10 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     return fit
 
 
+@add_docs_line1_to_attribute_history
 def interannual_variability(da, dim='time'):
     """
-    Calculates the interannual variability of a time series
+    Calculate the interannual variability of a time series
 
     Parameters
     ----------

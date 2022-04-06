@@ -1,6 +1,7 @@
 from pkg_resources import DistributionNotFound, get_distribution
 import xarray as xr
 from functools import wraps as _wraps
+from ..utils import add_docs_line1_to_attribute_history
 
 try:
     __version__ = get_distribution("all_my_code").version
@@ -17,48 +18,6 @@ def apply_process_pipeline(ds, *funcs):
     for func in funcs:
         ds = func(ds)
     return ds
-
-
-class add_docs_line1_to_attribute_history(object):
-    def __init__(self, func):
-        self.func = func
-        self.name = func.__name__
-        docs = func.__doc__
-        self.msg = docs.strip().split("\n")[0] if isinstance(docs, str) else ""
-
-    def __call__(self, *args, **kwargs):
-        if len(args) == 1:
-            try:
-                out = self._add_history(self.func(*args, **kwargs))
-                return out
-            except Exception as e:
-                raise e
-                return args[0]
-
-        self.kwargs = kwargs
-        return self.__caller__
-
-    def __caller__(self, ds):
-        return self._add_history(self.func(ds, **self.kwargs))
-
-    def _add_history(self, ds, key='history'):
-        from pandas import Timestamp
-
-        version = ".{__version__}" if __version__ else ""
-        
-        now = Timestamp.today().strftime("%y%m%d")
-        prefix = f"[amc{version}@{now}] "
-        msg = prefix + self.msg
-        
-        hist = ds.attrs.get(key, '')
-        if hist != '':
-            hist = hist.split(";")
-            hist = [h.strip() for h in hist]
-            msg = "; ".join(hist + [msg])
-            
-        ds = ds.assign_attrs({key: msg})
-
-        return ds
 
 
 @add_docs_line1_to_attribute_history
@@ -256,8 +215,8 @@ _func_registry = [
     drop_0d_coords,
 ]
 
-@xr.register_dataset_accessor("munging")
-@xr.register_dataarray_accessor("munging")
+@xr.register_dataset_accessor("conform")
+@xr.register_dataarray_accessor("conform")
 class DataConform(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
