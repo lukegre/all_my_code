@@ -1,4 +1,8 @@
-def download_file(url, path='.', fname=None, progress=True, decompress=True, **kwargs):
+from .utils import give_group_permission
+import posix
+
+
+def download_file(url, path='.', fname=None, progress=True, decompress=True, keep_compressed=True, premission=774, **kwargs):
     """
     A simple wrapper around the pooch package that makes downloading files easier
     
@@ -33,6 +37,7 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, **k
     """
     from pathlib import Path as posixpath
     import pooch
+    import os
     
     if fname is None:
         fname = posixpath(url).name
@@ -48,17 +53,21 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, **k
         decompressor = kwargs.get('processor', None)
         if decompressor is None:
             if '.zip' in url:
-                kwargs['processor'] = pooch.processors.Unzip()
+                kwargs['processor'] = pooch.processors.Unzip(extract_dir=path)
             elif '.tar' in url:
-                kwargs['processor'] = pooch.processors.Untar()
+                kwargs['processor'] = pooch.processors.Untar(extract_dir=path)
             elif ('.gz' in url) or ('.bz2' in url) or ('.xz' in url):
-                kwargs['processors'] = pooch.processors.Decompress()
+                kwargs['processors'] = pooch.processors.Decompress(extract_dir=path)
     
     props = dict(fname=fname, path=path)
     props.update(kwargs)
     
+    # here we do the actual downloading
     flist = pooch.retrieve(url, None, **props)
+
+    give_group_permission(flist, premission)
     
+    # return the string if it's the only item in the list
     if isinstance(flist, list):
         if len(flist) == 1:
             return flist[0]
