@@ -19,6 +19,33 @@ def get_unwrapped(func):
     return func
 
 
+def run_parallel(func, args_list, kwargs, n_jobs=12, **joblib_kwargs):
+    """
+    Run a function in parallel.
+
+    Parameters
+    ----------
+    func : function
+        Function that you want to apply to the arguments in args_list
+    args_list: list
+        List of arguments to apply the function to
+    kwargs: dict
+        keyword arguments that will be passed to func
+    n_jobs: int
+        number of parallel jobs
+
+    Returns
+    -------
+    tuple : the output from each func run
+    """
+    import joblib
+    pool = joblib.Parallel(n_jobs=n_jobs, **joblib_kwargs)
+    func = joblib.delayed(func)
+    queue = [func(arg, **kwargs) for arg in args_list]
+    out = pool(queue)
+    return out
+
+
 class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
         self.func = func
