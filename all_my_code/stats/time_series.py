@@ -2,7 +2,7 @@ import xarray as xr
 import numpy as np
 import joblib
 from functools import wraps as _wraps
-from ..utils import add_docs_line1_to_attribute_history
+from ..utils import add_docs_line1_to_attribute_history, get_unwrapped
 
 
 def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
@@ -264,40 +264,30 @@ def interannual_variability(da, dim='time'):
     return interannual_variability
 
 
+_func_registry = [
+    linregress,
+    slope,
+    climatology,
+    deseasonalise,
+    trend,
+    detrend,
+    rolling_stat_parallel,
+    interannual_variability,
+]
+
+
 @xr.register_dataarray_accessor('time_series')
 @xr.register_dataset_accessor('time_series')
-class TimeSeries(object):
-    def __init__(self, xarray_object):
-        self._obj = xarray_object
+class DataConform(object):
+    def __init__(self, xarray_obj):
+        self._obj = xarray_obj
 
-    @_wraps(linregress)
-    def linregress(self, **kwargs):
-        return linregress(self._obj, **kwargs)
-        
-    @_wraps(slope)
-    def slope(self, **kwargs):
-        return slope(self._obj, **kwargs)
-    
-    @_wraps(climatology)
-    def climatology(self, **kwargs):
-        return climatology(self._obj, **kwargs)
-    
-    @_wraps(deseasonalise)
-    def deseasonalise(self, **kwargs):
-        return deseasonalise(self._obj, **kwargs)
-    
-    @_wraps(trend)
-    def trend(self, **kwargs):
-        return trend(self._obj, **kwargs)
-    
-    @_wraps(detrend)
-    def detrend(self, **kwargs):
-        return detrend(self._obj, **kwargs)
+        for func in _func_registry:
+            setattr(self, get_unwrapped(func).__name__, self._make_accessor_func(func))
 
-    @_wraps(rolling_stat_parallel)
-    def rolling_stat_parallel(self, *args, **kwargs):
-        return rolling_stat_parallel(self._obj, *args, **kwargs)
+    def _make_accessor_func(self, func):
+        @_wraps(get_unwrapped(func))
+        def run_func(*args, **kwargs):
+            return func(self._obj, *args, **kwargs)
 
-    @_wraps(interannual_variability)
-    def interannual_variability(self, **kwargs):
-        return interannual_variability(self._obj, **kwargs)
+        return run_func

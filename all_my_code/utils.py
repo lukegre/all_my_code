@@ -6,6 +6,19 @@ except DistributionNotFound:
 del get_distribution, DistributionNotFound
 
 
+def get_unwrapped(func):
+    def is_wrapped(func):
+        if getattr(func, '__wrapped__', False):
+            return True
+        else:
+            return False
+        
+    while is_wrapped(func):
+        func = func.func
+        
+    return func
+
+
 class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
         self.func = func

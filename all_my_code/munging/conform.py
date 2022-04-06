@@ -1,6 +1,6 @@
 import xarray as xr
 from functools import wraps as _wraps
-from ..utils import add_docs_line1_to_attribute_history
+from ..utils import add_docs_line1_to_attribute_history, get_unwrapped
 
 
 def apply_process_pipeline(ds, *funcs):
@@ -208,18 +208,19 @@ _func_registry = [
     drop_0d_coords,
 ]
 
+
 @xr.register_dataset_accessor("conform")
 @xr.register_dataarray_accessor("conform")
 class DataConform(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-        for wrapped in _func_registry:
-            setattr(self, wrapped.func.__name__, self._make_accessor_func(wrapped))
+        for func in _func_registry:
+            setattr(self, get_unwrapped(func).__name__, self._make_accessor_func(func))
 
-    def _make_accessor_func(self, wrapped):
-        @_wraps(wrapped.func)
+    def _make_accessor_func(self, func):
+        @_wraps(get_unwrapped(func))
         def run_func(*args, **kwargs):
-            return wrapped(self._obj, *args, **kwargs)
+            return func(self._obj, *args, **kwargs)
 
         return run_func
