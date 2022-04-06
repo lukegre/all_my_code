@@ -18,4 +18,4 @@ _func_registry = [
     per_nanosec_to_day,
     per_nanosec_to_year,
     cm_per_hr_to_meters_per_day,
-]=
+]
