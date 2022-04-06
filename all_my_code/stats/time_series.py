@@ -84,7 +84,7 @@ def deseasonalise(da, groupby_dim='time.month'):
     dim0, dim1 = groupby_dim.split('.')
     grp = da.groupby(groupby_dim)
     seasonal_cycle = grp.mean(dim0)
-    seasonal_cycle -= seasonal_cycle.mean()
+    seasonal_cycle -= seasonal_cycle.mean(dim1)
     deseasonalised = grp - seasonal_cycle
     deseasonalised = deseasonalised.assign_attrs(units=da.attrs.get('units', ''))
 
