@@ -282,6 +282,10 @@ class TimeSeries(object):
     def climatology(self, **kwargs):
         return climatology(self._obj, **kwargs)
     
+    @_wraps(deseasonalise)
+    def deseasonalise(self, **kwargs):
+        return deseasonalise(self._obj, **kwargs)
+    
     @_wraps(trend)
     def trend(self, **kwargs):
         return trend(self._obj, **kwargs)
