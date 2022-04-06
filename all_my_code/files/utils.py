@@ -26,7 +26,7 @@ def move_file_to_parent(fname, levels=1):
     return str(new_path)
 
 
-def give_group_permission(path, permission=774):
+def change_file_permissions(path, permission=774):
     """ 
     Give group permission to a file or directory 
     """

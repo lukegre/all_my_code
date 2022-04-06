@@ -1,8 +1,7 @@
-from .utils import give_group_permission
 import posix
 
 
-def download_file(url, path='.', fname=None, progress=True, decompress=True, keep_compressed=True, premission=774, **kwargs):
+def download_file(url, path='.', fname=None, progress=True, decompress=True, premission=774, **kwargs):
     """
     A simple wrapper around the pooch package that makes downloading files easier
     
@@ -25,6 +24,11 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, kee
         if the file name contains an extension that is a known compressed 
         format, the file will automatically be decompressed and the 
         decompressed files will be returned 
+    premission: int [774]
+        The permission to set the download and all subfiles to. 
+        Must be three integer values for the file permissions - see chmod
+        Does not accept four digit octal values. 
+        Note that permissions will be changed even if the files already exist. 
     **kwargs: key-value
         any standard inputs of pooch 
         
@@ -35,6 +39,7 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, kee
         be returned, otherwise, a list will be returned
         
     """
+    from .utils import change_file_permissions
     from pathlib import Path as posixpath
     import pooch
     import os
@@ -65,7 +70,7 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, kee
     # here we do the actual downloading
     flist = pooch.retrieve(url, None, **props)
 
-    give_group_permission(flist, premission)
+    change_file_permissions(flist, premission)
     
     # return the string if it's the only item in the list
     if isinstance(flist, list):
