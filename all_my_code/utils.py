@@ -19,7 +19,7 @@ def get_unwrapped(func):
     return func
 
 
-def run_parallel(func, args_list, kwargs, n_jobs=12, **joblib_kwargs):
+def run_parallel(func, args_list, kwargs={}, n_jobs=12, **joblib_kwargs):
     """
     Run a function in parallel.
 

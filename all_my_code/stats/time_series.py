@@ -157,9 +157,10 @@ def detrend(da, dim='time', deg=1, coef=None):
     return da_detrend
 
 
+@add_docs_line1_to_attribute_history
 def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     """
-    Perform full linear regression with all stats (coefs, r2, pvalue, rmse, +)
+    Full linear regression with all stats (coefs, r2, pvalue, rmse, +)
 
     Only slightly slower than using xr.DataArray.polyfit, but returns
     all stats (if full=True)
@@ -184,7 +185,18 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
         rsquared, pvalue, and rmse 
     """
     from scipy.stats import beta
-    from xarray import DataArray
+    from xarray import DataArray, Dataset
+
+    if isinstance(y, Dataset):
+        from ..utils import run_parallel
+        inputs = [y[k].rename(k) for k in y]
+        outputs = run_parallel(
+            linregress, 
+            inputs, 
+            kwargs=dict(dim=dim, deg=deg, full=full, drop_polyfit_name=False),
+            verbose=True)
+            
+        return xr.merge(outputs)
 
     skipna = True
     # total sum of squares (use this for non-agg dimensions)
@@ -236,6 +248,9 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     if drop_polyfit_name:
         rename_dict = {k: k.replace('polyfit_', '') for k in fit}
         fit = fit.rename(rename_dict)
+    elif getattr(y, 'name', False):
+        name = y.name
+        rename_dict = {k: f"{name}_{k}" for k in fit}
 
     return fit
 
