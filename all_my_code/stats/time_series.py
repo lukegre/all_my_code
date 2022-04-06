@@ -27,13 +27,28 @@ def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
 
 
 def slope(da, dim='time'):
+    """
+    Calculate the first order linear slope 
+
+    Parameters
+    ----------
+    da: xr.DataArray
+        the data to calculate the slope of
+    dim: str [time]
+        the dimension to calculate the slope over
+    
+    Returns
+    -------
+    xr.DataArray
+        the slope of the data
+    """
     
     da = da.assign_coords(time=lambda x: np.arange(x[dim].size))
     slope = (
         da.polyfit('time', 1, skipna=False)
         .polyfit_coefficients[0]
         .drop('degree')
-        .assign_attrs(units='units/year'))
+        .assign_attrs(units=f'units/{dim}_step'))
     
     return slope
 
