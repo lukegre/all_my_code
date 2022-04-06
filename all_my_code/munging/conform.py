@@ -1,13 +1,6 @@
-from pkg_resources import DistributionNotFound, get_distribution
 import xarray as xr
 from functools import wraps as _wraps
 from ..utils import add_docs_line1_to_attribute_history
-
-try:
-    __version__ = get_distribution("all_my_code").version
-except DistributionNotFound:
-    __version__ = ""
-del get_distribution, DistributionNotFound
 
 
 def apply_process_pipeline(ds, *funcs):

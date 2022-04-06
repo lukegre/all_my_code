@@ -1,3 +1,10 @@
+from pkg_resources import DistributionNotFound, get_distribution
+try:
+    __version__ = get_distribution("all_my_code").version
+except DistributionNotFound:
+    __version__ = ""
+del get_distribution, DistributionNotFound
+
 
 class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
