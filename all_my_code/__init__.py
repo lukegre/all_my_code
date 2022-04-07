@@ -6,6 +6,8 @@ from . import munging
 from . import stats
 from . import files
 from . import analyse
+from . import data
+
 
 try:
     __version__ = get_distribution("all_my_code").version
