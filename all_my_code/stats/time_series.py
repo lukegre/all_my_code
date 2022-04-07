@@ -26,6 +26,7 @@ def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
     return trends
 
 
+@add_docs_line1_to_attribute_history
 def slope(da, dim='time'):
     """
     Calculate the first order linear slope 
@@ -271,6 +272,42 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
 
 
 @add_docs_line1_to_attribute_history
+def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_poly_order=1, dim='time'):
+    """
+    Calculate time of emergence based on standard deviation 
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        data for which to calculate the ToE
+    type : str [deseason | seasonal_cycle]
+        determines if the "noise" of the ToE calculation is based on
+        the standard deviation of the detrended data or based on the 
+        standard deviation of the seasonal cycle
+    noise_multiplier : float [2]
+        how much confidence you want - sigma * 2 = 95th percentile
+    dim : str [time]
+        dimension along which ToE is calculated
+
+    Returns
+    -------
+    time_of_emergence : xr.DataArray
+        the time of emergence in years
+    """
+    
+    noise_in = da.time_series.detrend(deg=detrend_poly_order, dim=dim)
+    if deseasonalise:
+        noise_in = noise_in.time_series.deseasonalise()
+        
+    noise = noise_in.std(dim) * noise_multiplier
+    slope = da.groupby(f"{dim}.year").mean(dim)
+        
+    toe = (noise / abs(slope)).assign_attrs(units='years')
+    
+    return toe
+    
+
+@add_docs_line1_to_attribute_history
 def interannual_variability(da, dim='time'):
     """
     Calculate the interannual variability of a time series
@@ -305,6 +342,7 @@ _func_registry = [
     detrend,
     rolling_stat_parallel,
     interannual_variability,
+    time_of_emergence_stdev,
 ]
 
 
