@@ -1,5 +1,5 @@
 def make_zonal_anomaly_plot_data(da):
-    da_zon_mean = da.mean('lon')
+    da_zon_mean = da.mean('lon').dropna('lat', how='all')
     lat_avg = da_zon_mean.mean('time')
     da_zon_anom = da_zon_mean - lat_avg
     da_zon_anom_an = da_zon_anom.resample(time='1AS').mean().T
@@ -22,7 +22,7 @@ def plot_zonal_anom(da, **kwargs):
     x1 = lat_avg.values
     y1 = lat_avg.lat.values
     
-    ax[0].plot(x1, y1, color='k', lw=3)
+    ax[0].plot(x1, y1, color='k', lw=1.5)
     
     props = dict(
         cbar_kwargs=dict(pad=0.03),
@@ -30,7 +30,6 @@ def plot_zonal_anom(da, **kwargs):
         levels=11, 
         ax=ax[1])
     props.update(kwargs)
-    
     img = zon_anom.plot.contourf(**props)
     
     ax[0].set_ylabel('Latitude (°N)')
