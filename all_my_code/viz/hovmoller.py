@@ -39,6 +39,9 @@ def plot_zonal_anom(da, ax=None, lw=0.5, **kwargs):
         ax=ax[1])
     props.update(kwargs)
 
+    if props.get('add_colorbar') is False:
+        props.pop('cbar_kwargs')
+
     img = zon_anom.plot.contourf(**props)
     if lw > 0:
         cnt = zon_anom.plot.contour(
