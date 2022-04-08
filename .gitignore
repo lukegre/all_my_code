@@ -69,3 +69,4 @@ junit.xml
 **/.ipynb_checkpoints/**
 notebooks/**
 data/**
+all_my_code/_version.py
