@@ -134,7 +134,7 @@ def rolling_ewm(da, radius=0.5, fill_tail=True, lengthening_factor=10, dim='time
     
     # the rolling_exp function does not center the dates, so we do that here
     shift = -int(window / 2)
-    shifted = smooth.roll(**{dim: shift})[:shift].reindex_like(linear_interp)
+    shifted = smooth.roll(**{dim: shift}, roll_coords=False)[:shift].reindex_like(linear_interp)
     
     # filling the missing ends with the linear interpolated results
     if fill_tail:
