@@ -56,8 +56,11 @@ class add_docs_line1_to_attribute_history(object):
     def __call__(self, *args, **kwargs):
         if len(args) == 1:
             try:
-                out = self._add_history(self.func(*args, **kwargs))
+                out = self._add_history(self.func(*args, **kwargs), args[0], kwargs)
                 return out
+            except AttributeError as e:
+                print(e)
+                return self.func(*args, **kwargs)
             except Exception as e:
                 raise e
                 return args[0]
@@ -68,16 +71,19 @@ class add_docs_line1_to_attribute_history(object):
     def __caller__(self, ds):
         return self._add_history(self.func(ds, **self.kwargs))
 
-    def _add_history(self, ds, key='history'):
+    def _add_history(self, ds, old, kwargs, key='history'):
         from pandas import Timestamp
 
-        version = ".{__version__}" if __version__ else ""
+        version = f".{__version__}" if __version__ else ""
+        version = version.split('+')[0]
         
         now = Timestamp.today().strftime("%y%m%d")
-        prefix = f"[amc{version}@{now}] "
-        msg = prefix + self.msg
+        prefix = f"[all_my_code{version}@{now}] "
+
+        dim = kwargs['dim'] if 'dim' in kwargs else 'time' 
+        msg = prefix + self.msg.format(dim=dim)
         
-        hist = ds.attrs.get(key, '')
+        hist = old.attrs.get(key, '')
         if hist != '':
             hist = hist.split(";")
             hist = [h.strip() for h in hist]

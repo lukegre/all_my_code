@@ -29,7 +29,7 @@ def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
 @add_docs_line1_to_attribute_history
 def slope(da, dim='time'):
     """
-    Calculate the first order linear slope 
+    Calculate the first order linear slope per {dim} unit
 
     Parameters
     ----------
@@ -43,10 +43,10 @@ def slope(da, dim='time'):
     xr.DataArray
         the slope of the data
     """
-    
-    da = da.assign_coords(time=lambda x: np.arange(x[dim].size))
+    # assign the dimension as step from 1 to the length of the dimension
+    da = da.assign_coords(**{dim: np.arange(da[dim].size)})
     slope = (
-        da.polyfit('time', 1, skipna=False)
+        da.polyfit(dim, 1, skipna=True)
         .polyfit_coefficients[0]
         .drop('degree')
         .assign_attrs(units=f'units/{dim}_step'))
@@ -261,10 +261,11 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     fit['polyfit_pvalue'] = (r * np.nan).fillna(2 * dist.cdf(-abs(r)))
     fit['polyfit_rmse'] = (rss / n)**0.5
 
+    name = getattr(y, 'name', None)
     if drop_polyfit_name:
         rename_dict = {k: k.replace('polyfit_', '') for k in fit}
         fit = fit.rename(rename_dict)
-    elif name := getattr(y, 'name', False):
+    elif name is not None:
         rename_dict = {k: f"{name}_{k}" for k in fit}
         fit = fit.rename(rename_dict)
 
@@ -294,18 +295,25 @@ def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_
     time_of_emergence : xr.DataArray
         the time of emergence in years
     """
+
+    name = getattr(da, 'name', None)
+    name = name + '_' if name is not None else ''
     
     noise_in = da.time_series.detrend(deg=detrend_poly_order, dim=dim)
     if deseasonalise:
         noise_in = noise_in.time_series.deseasonalise()
         
     noise = noise_in.std(dim) * noise_multiplier
-    slope = da.groupby(f"{dim}.year").mean(dim)
+    slope = da.time_series.slope(dim=dim)
         
-    toe = (noise / abs(slope)).assign_attrs(units='years')
+    toe = (noise / abs(slope)).assign_attrs(
+        description='time of emergence in years',
+        long_name=f'{name}time_of_emergence',
+        units='years'
+    )
     
     return toe
-    
+        
 
 @add_docs_line1_to_attribute_history
 def interannual_variability(da, dim='time'):
@@ -346,6 +354,8 @@ _func_registry = [
 ]
 
 
+@xr.register_dataarray_accessor('ts')
+@xr.register_dataset_accessor('ts')
 @xr.register_dataarray_accessor('time_series')
 @xr.register_dataset_accessor('time_series')
 class DataConform(object):
