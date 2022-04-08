@@ -304,7 +304,7 @@ def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_
         noise_in = noise_in.time_series.deseasonalise()
         
     noise = noise_in.std(dim) * noise_multiplier
-    slope = da.time_series.slope(dim=dim)
+    slope = da.resample(**{dim: '1AS'}).mean().time_series.slope(dim=dim)
         
     toe = (noise / abs(slope)).assign_attrs(
         description='time of emergence in years',
