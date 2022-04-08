@@ -1,7 +1,7 @@
 import posix
 
 
-def download_file(url, path='.', fname=None, progress=True, decompress=True, premission=774, **kwargs):
+def download_file(url, path='.', fname=None, progress=True, decompress=True, premission=774, username=None, password=None, **kwargs):
     """
     A simple wrapper around the pooch package that makes downloading files easier
     
@@ -52,6 +52,11 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, pre
         if downloader is None:
             downloader = pooch.downloaders.choose_downloader(url)
         downloader.progressbar = True
+        if hasattr(downloader, 'username') and username is not None:
+            downloader.username = username
+        if hasattr(downloader, 'password') and password is not None:
+            downloader.password = password
+            print(downloader)
         kwargs['downloader'] = downloader
     
     if decompress:
@@ -80,12 +85,12 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, pre
         return flist
 
 
-def download_flist_from_url(
+def get_flist_from_url(
     url,
     username=None,
     password=None,
-    use_cache=True,
-    cache_path="./_urls_{hash}.cache",
+    use_cache=False,
+    cache_path="./_urls.cache",
     **kwargs,
 ):
     """If a url has a wildcard (*) value, remote files will be searched.

@@ -64,5 +64,8 @@ target/
 # vscode
 .vscode/*
 junit.xml
+
+# other files
 **/.ipynb_checkpoints/**
 notebooks/**
+data/**
