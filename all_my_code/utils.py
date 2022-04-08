@@ -46,6 +46,12 @@ def run_parallel(func, args_list, kwargs={}, n_jobs=12, **joblib_kwargs):
     return out
 
 
+def camel_to_snake(name):
+    import re
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+
 class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
         self.func = func

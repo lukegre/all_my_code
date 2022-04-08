@@ -43,6 +43,10 @@ def slope(da, dim='time'):
     xr.DataArray
         the slope of the data
     """
+    from warnings import filterwarnings
+
+    filterwarnings('ignore', message=".*poorly conditioned.*")
+
     # assign the dimension as step from 1 to the length of the dimension
     da = da.assign_coords(**{dim: np.arange(da[dim].size)})
     slope = (

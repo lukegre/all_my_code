@@ -9,7 +9,10 @@ def apply_process_pipeline(ds, *funcs):
     Functions must accept a Dataset and return a Dataset
     """
     for func in funcs:
-        ds = func(ds)
+        try:
+            ds = func(ds)
+        except:
+            pass
     return ds
 
 
@@ -197,6 +200,21 @@ def drop_0d_coords(da):
     return da_dropped_coords
 
 
+@add_docs_line1_to_attribute_history
+def rename_vars_snake_case(ds):
+    """
+    Rename variables to snake_case from CamelCase
+    """
+    from ..utils import camel_to_snake
+    if isinstance(ds, xr.Dataset):
+        ds = ds.rename({k: camel_to_snake(k) for k in ds.data_vars})
+    elif isinstance(ds, xr.DataArray):
+        name = getattr(ds, 'name', "")
+        ds = ds.rename(camel_to_snake(name))
+
+    return ds
+
+
 _func_registry = [
     lon_0E_360E,
     lon_180W_180E,
@@ -204,14 +222,31 @@ _func_registry = [
     coord_05_offset,
     transpose_dims,
     correct_coord_names,
+    rename_vars_snake_case,
     time_center_monthly,
     drop_0d_coords,
+]
+
+
+_default_conform = [
+    correct_coord_names,
+    transpose_dims,
+    lon_180W_180E,
+    time_center_monthly,
+    rename_vars_snake_case,
 ]
 
 
 @xr.register_dataset_accessor("conform")
 @xr.register_dataarray_accessor("conform")
 class DataConform(object):
+    """
+    A class to conform a dataset/dataarray to a the desired conventions
+
+    Modules (subfunctions) can be used to conform the dataset/dataarray 
+    individually, or you can call this function to apply a set of standard 
+    functions. 
+    """
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
@@ -224,3 +259,11 @@ class DataConform(object):
             return func(self._obj, *args, **kwargs)
 
         return run_func
+
+    def __call__(self, funcs=_default_conform):
+        da = self._obj
+
+        out = apply_process_pipeline(da, *funcs)
+
+        return out
+
