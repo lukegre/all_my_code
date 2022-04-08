@@ -15,7 +15,7 @@ To get the latest version:
 
 .. code-block:: bash
 
-   pip install git+git://github.com/lukegre/all_my_code/
+   pip install git+https://github.com/lukegre/all_my_code/
 
 
 Usage
