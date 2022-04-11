@@ -86,12 +86,14 @@ def plot_zonal_anom_with_trends(da, ax=None, lw=0.5, **kwargs):
     assert len(ax) == 3, 'ax must be three axes'
     
     lat_avg, hovmol_data = make_zonal_anomaly_plot_data(da)
-    lat_trend = hovmol_data.ts.slope(dim='time').smooth.ewm(dim='lat', radius=2)
+    lat_trend = hovmol_data.ts.slope(dim='time').smooth.rolling_ewm(dim='lat', radius=2)
 
     # the zonal anomaly function takes the first two axes objects as input
     # and we create the third plot manually form the lat_trend data
-    props = dict(levels=21, add_colorbar=False, extend='both')
+    props = dict(levels=21, extend='both')
     props.update(kwargs)
+    props.update(add_colorbar=False)
+    cbar_kwargs = props.get('cbar_kwargs', {})
     img = da.viz.zonal_anomally(ax=ax[:2], lw=lw, **props)[1]
 
     yticks = ax[1].get_yticks()
@@ -115,8 +117,50 @@ def plot_zonal_anom_with_trends(da, ax=None, lw=0.5, **kwargs):
     ax[0].spines['left'].set_visible(True)
 
     fig.tight_layout()
-    
-    ax[1].colorbar = plt.colorbar(img, ax=[ax], location='top', shrink=.64, aspect=25)
+
+    subplot_width = fig.subplotpars.right - fig.subplotpars.left
+    hovmol_width = ax[1].axes.get_position().width
+    cbar_shrink = hovmol_width / subplot_width
+
+    props = dict(
+        location='top', 
+        shrink=cbar_shrink, 
+        aspect=25, 
+        extendrect=True, 
+        pad=0.01, 
+        extendfrac=0.02)
+    props.update(cbar_kwargs)
+    ax[1].colorbar = plt.colorbar(img, ax=[ax], **props)
     ax[1] = img
     
     return fig, ax
+
+
+def zonal_anomally(da, with_trend=False, lw=0.5, ax=None, **kwargs):
+    """
+    Plot the zonal anomaly of a 3D xarray object with time, lat, lon dimensions
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The data to plot that contains time, lat, and lon dimensions
+    with_trend : bool
+        If True, plot the zonal trends as a third subplot (on the right if ax not specified)
+    lw : float
+        Linewidth of the contour lines - set to 0 if you don't want contour lines
+    ax : list of axes objects
+        If None, create a new figure and axes objects. If a list of axes objects, plot on those axes.
+        if with_trend is False, then two axes must be given, if True, then three axes objects
+        must be given.
+    kwargs : dict
+        Keyword arguments to be passed to the contourf function
+
+    Returns
+    -------
+    fig: a figure object
+    ax : list of axes objects, but the second object is always a quadmesh object. has colorbar object
+    """
+    if with_trend:
+        return plot_zonal_anom_with_trends(da, ax=ax, lw=lw, **kwargs)
+    else:
+        return plot_zonal_anom(da, ax=ax, lw=lw, **kwargs)

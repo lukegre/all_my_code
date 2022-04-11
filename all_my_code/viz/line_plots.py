@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 
 
-def plot_ensemble_line_with_std(da, x='time', ax=None, **lineplot_kwargs):
+def ensemble_line_with_std(da, x='time', ax=None, **lineplot_kwargs):
     from seaborn import lineplot
     
     if ax is None:
@@ -22,7 +22,7 @@ def plot_ensemble_line_with_std(da, x='time', ax=None, **lineplot_kwargs):
     
 
 
-def plot_time_series(xda, ax=None, label_spacing=0.02, **kwargs):
+def time_series(xda, ax=None, label_spacing=0.02, **kwargs):
     """
     Plots time on x-axis and other var on y-axis. 
     

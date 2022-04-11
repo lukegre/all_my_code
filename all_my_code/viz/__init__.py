@@ -1,4 +1,5 @@
 from . utils import save_figures_to_pdf
+from . line_plots import annotate_line
 from . import hovmoller
 from . import visualize
 from . import utils
