@@ -12,6 +12,10 @@ change these with the **kwargs argument.
 """
 
 import warnings
+import os
+
+# should speed up plotting in cartopy > 0.20
+os.environ['PYPROJ_GLOBAL_CONTEXT'] = 'ON'
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,6 +30,7 @@ warnings.filterwarnings("ignore", ".*All-NaN slice encountered.*")
 warnings.filterwarnings("ignore", ".*invalid value encountered in less.*")
 warnings.filterwarnings("ignore", ".*convolution.*")
 warnings.filterwarnings("ignore", category=MatplotlibDeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 rcMaps = {
@@ -171,7 +176,7 @@ class Mapping(object):
         plot_kwargs = ['levels', 'cmap', 'vmin', 'vmax']
         da_props = {k: da.attrs[k] for k in plot_kwargs if k in da.attrs}
         
-        da = da.assign_coords(lon=lambda x: x[self._lon_name]%360).sortby(self._lon_name)
+        da = da.assign_coords(lon=lambda x: x[self._lon_name] % 360).sortby(self._lon_name)
         da = fill_lon_gap(da)
         
         self._get_cbar_kwargs(kwargs)
