@@ -260,10 +260,32 @@ class DataConform(object):
 
         return run_func
 
-    def __call__(self, funcs=_default_conform):
+    def __call__(
+        self, 
+        coord_names=True,
+        time_centered=False,
+        squeeze=True,
+        transpose=True,
+        lon_180W=True,
+        standardize_var_names=False,
+    ):
         da = self._obj
 
-        out = apply_process_pipeline(da, *funcs)
+        funclist = []
+        if coord_names:
+            funclist.append(correct_coord_names)
+        if time_centered:
+            funclist.append(time_center_monthly)
+        if squeeze:
+            funclist.append(drop_0d_coords)
+        if transpose:
+            funclist.append(transpose_dims)
+        if lon_180W:
+            funclist.append(lon_180W_180E)
+        if standardize_var_names:
+            funclist.append(rename_vars_snake_case)
+
+        out = apply_process_pipeline(da, *funclist)
 
         return out
 
