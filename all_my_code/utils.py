@@ -52,6 +52,13 @@ def camel_to_snake(name):
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
+def snake_to_camel(snake_str):
+    components = snake_str.split('_')
+    # We capitalize the first letter of each component except the first one
+    # with the 'title' method and join them together.
+    return ''.join([x.title() for x in components])
+
+
 class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
         self.func = func
@@ -98,3 +105,58 @@ class add_docs_line1_to_attribute_history(object):
         ds = ds.assign_attrs({key: msg})
 
         return ds
+
+
+def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
+    """
+    Turns a list of functions into an xarray accessor.
+    
+    Parameters
+    ----------
+    class_name : str
+        Name of the class that the accessor will be attached to.
+        Will be converted to snake_case format for the accessor name.
+        The class name will be converted to CamelCase.
+    func_list : list
+        List of functions to be attached to the accessor. Note that
+        the first input of each function must be a dataset/dataarray.
+    accessor_type : str
+        Type of accessor to be created. Cane be 'dataarray' or 'dataset' or 'both'
+
+    Returns
+    -------
+    None
+    """
+    from xarray import register_dataarray_accessor, register_dataset_accessor
+
+    def construct(self, da): 
+        self._obj = da
+
+    def wrapped_function(func):
+        from functools import wraps
+        og_func = get_unwrapped(func)
+        @wraps(og_func)
+        def dynamic_function(self, *args, **kwargs):
+            da = self._obj
+            return func(da, *args, **kwargs)
+        return dynamic_function
+    
+    func_dict = {"__init__": construct}
+    for func in func_list:
+        unwrapped = get_unwrapped(func)
+        name = unwrapped.__name__
+        func_dict[name] = wrapped_function(func)
+        
+    # creating class dynamically
+    class_name_camel = snake_to_camel(class_name)
+    class_name_snake = camel_to_snake(class_name)
+    Accessor = type(class_name_camel, (object,), func_dict)
+
+    # creating objects
+    if 'array' in accessor_type:
+        register_dataarray_accessor(class_name_snake)(Accessor)
+    elif 'set' in accessor_type:
+        register_dataset_accessor(class_name_snake)(Accessor)
+    elif 'both' in accessor_type:
+        register_dataarray_accessor(class_name_snake)(Accessor)
+        register_dataset_accessor(class_name_snake)(Accessor)

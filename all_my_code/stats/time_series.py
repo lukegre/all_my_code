@@ -1,8 +1,9 @@
+from os import access
+from ..utils import make_xarray_accessor as _make_xarray_accessor, add_docs_line1_to_attribute_history
 import xarray as xr
 import numpy as np
 import joblib
 from functools import wraps as _wraps
-from ..utils import add_docs_line1_to_attribute_history, get_unwrapped
 
 
 def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
@@ -358,20 +359,5 @@ _func_registry = [
 ]
 
 
-@xr.register_dataarray_accessor('ts')
-@xr.register_dataset_accessor('ts')
-@xr.register_dataarray_accessor('time_series')
-@xr.register_dataset_accessor('time_series')
-class DataConform(object):
-    def __init__(self, xarray_obj):
-        self._obj = xarray_obj
-
-        for func in _func_registry:
-            setattr(self, get_unwrapped(func).__name__, self._make_accessor_func(func))
-
-    def _make_accessor_func(self, func):
-        @_wraps(get_unwrapped(func))
-        def run_func(*args, **kwargs):
-            return func(self._obj, *args, **kwargs)
-
-        return run_func
+_make_xarray_accessor("time_series", _func_registry, accessor_type='both')
+_make_xarray_accessor("ts", _func_registry, accessor_type='both')

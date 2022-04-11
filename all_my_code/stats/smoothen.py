@@ -1,5 +1,4 @@
-from xarray import register_dataarray_accessor as _register_dataarray_accessor
-from functools import wraps
+from ..utils import make_xarray_accessor as _make_xarray_accessor
 
 
 def _interp_xarray_with_scipy_interp(da, interp_func, dim='time', lengthening_factor=10, **kwargs):
@@ -249,23 +248,7 @@ def convolve(da, kernel=None, fill_nans=False, verbose=True):
     return convolved
 
 
-@_register_dataarray_accessor('smooth')
-class Smooth(object):
-    def __init__(self, da):
-        self._obj = da
-    
-    @wraps(spline)
-    def spline(self, **kwargs):
-        return spline(self._obj, **kwargs)
-
-    @wraps(rolling_ewm)
-    def ewm(self, **kwargs):
-        return rolling_ewm(self._obj, **kwargs)
-    
-    @wraps(loess)
-    def loess(self, **kwargs):
-        return loess(self._obj, **kwargs)
-    
-    @wraps(convolve)
-    def convolve(self, **kwargs):
-        return convolve(self._obj, **kwargs)
+_make_xarray_accessor(
+    'smooth',
+    [spline, rolling_ewm, loess, convolve],
+)

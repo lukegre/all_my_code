@@ -1,4 +1,4 @@
-from xarray import register_dataarray_accessor as _register_dataarray_accessor
+from ..utils import make_xarray_accessor as _make_xarray_accessor
 import xarray as xr
 import numpy as np
 from functools import wraps as _wraps
@@ -21,7 +21,7 @@ def avg_area_weighted(da, dims=['lat', 'lon']):
         The weighted average
     """
 
-    area = da.spatial.area()
+    area = da.spatial.get_area()
     return da.weighted(area).mean(dims)
 
 
@@ -61,7 +61,7 @@ def aggregate_region(xda, region_mask=None, region_names=None, weights='area', f
     if isinstance(weights, str):
         # areas will be weighted be area 
         if (weights == 'area'):
-            weights = region_mask.spatial.area()
+            weights = region_mask.spatial.get_area()
 
     groups = xda.groupby(region_mask)
 
@@ -308,31 +308,20 @@ def area_grid(lat, lon, return_dataarray=False):
         return xda
 
 
-@_register_dataarray_accessor('spatial')
-class Spatial(object):
-    def __init__(self, da):
-        self._obj = da
+def get_area(da, lat_name="lat", lon_name="lon"):
 
-    def area(self, lat_name="lat", lon_name="lon"):
-        da = self._obj
+    x = da[lon_name].values
+    y = da[lat_name].values
 
-        x = da[lon_name].values
-        y = da[lat_name].values
+    out = area_grid(y, x, return_dataarray=True)
 
-        out = area_grid(y, x, return_dataarray=True)
+    name = getattr(da, 'name', 'xr.DataArray')
+    description = out.attrs.get('description', '')
+    description += f' Area calculated from the latitude and longitude coordinates of {name}'
 
-        name = getattr(da, 'name', 'xr.DataArray')
-        description = out.attrs.get('description', '')
-        description += f' Area calculated from the latitude and longitude coordinates of {name}'
+    out.attrs['description'] = description
+    
+    return out
 
-        out.attrs['description'] = description
-        
-        return out
 
-    @_wraps(aggregate_region)
-    def aggregate_region(self, *args, **kwargs):
-        return aggregate_region(self._obj, *args, **kwargs)
-
-    @_wraps(avg_area_weighted)
-    def avg_area_weighted(self, *args, **kwargs):
-        return avg_area_weighted(self._obj, *args, **kwargs)
+_make_xarray_accessor("spatial", [avg_area_weighted, aggregate_region, get_area])

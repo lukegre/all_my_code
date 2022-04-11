@@ -1,3 +1,4 @@
+from ..utils import make_xarray_accessor as _make_xarray_accessor
 import xarray as xr
 import numpy as np
 from functools import wraps as _wraps
@@ -51,12 +52,4 @@ def trend_and_seasonal_cycle(da, x, groupby_dim='time.month', deg=1):
     return forecast
 
 
-@xr.register_dataarray_accessor('forecast')
-@xr.register_dataset_accessor('forecast')
-class Forecast(object):
-    def __init__(self, xarray_object):
-        self._obj = xarray_object
-        
-    @_wraps(trend_and_seasonal_cycle)
-    def trend_and_seasonal_cycle(self, *args, **kwargs):
-        return trend_and_seasonal_cycle(self._obj, *args, **kwargs)
+_make_xarray_accessor('forecast', [trend_and_seasonal_cycle])
