@@ -67,24 +67,24 @@ class add_docs_line1_to_attribute_history(object):
         self.msg = docs.strip().split("\n")[0] if isinstance(docs, str) else ""
 
     def __call__(self, *args, **kwargs):
-        if len(args) == 1:
-            try:
-                out = self.func(*args, **kwargs)
-                # if input and output are the same, then don't add history
-                if out.equals(args[0]):
-                    return out
-                else:
-                    return self._add_history(out, args[0], kwargs)
+        from xarray import DataArray, Dataset
+        try:
+            out = self.func(*args, **kwargs)
+            # if the output is not a data array then we dont add history
+            if not isinstance(out, (DataArray, Dataset)):
                 return out
-            except Exception as e:
-                raise e
-                return args[0]
-
-        self.kwargs = kwargs
-        return self.__caller__
+            # if input and output are the same, then don't add history
+            elif out.equals(args[0]):
+                return out
+            # in all other situations we add history
+            else:
+                return self._add_history(out, args[0], kwargs)
+            return out
+        except Exception as e:
+            raise e
 
     def __caller__(self, ds):
-        return self._add_history(self.func(ds, **self.kwargs))
+        return self._add_history(self.func(ds, *self.args[1:], **self.kwargs))
 
     def _add_history(self, new, old, kwargs, key='history'):
         from pandas import Timestamp
