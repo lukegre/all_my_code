@@ -100,22 +100,22 @@ def _grid_flat_data(*data_columns, return_dataaray=True, **coordinate_columns):
             col_names["columns"][i] = col.name
 
     labels.update(col_names)
-    xda = xr.DataArray(gridded, dims=["columns"] + keys, coords=labels)
+    da = xr.DataArray(gridded, dims=["columns"] + keys, coords=labels)
 
-    return xda.squeeze()
+    return da.squeeze()
 
 
-def colocate_xdarray(xda, verbose=True, **coords):
+def colocate_dataarray(da, verbose=True, **coords):
     """
     Colocates SOCAT data with data data in a netCDF (xarray.DataArray).
 
     Parameters
     ----------
-    xda : xr.DataArray
+    da : xr.DataArray
         a dataArray that will be matched with the values in coords
     coords : array-like (float)
-        keynames need to be matched with the dimension names in xda.
-        values need to be matched with the dtypes in xda.
+        keynames need to be matched with the dimension names in da.
+        values need to be matched with the dtypes in da.
 
     Returns
     -------
@@ -139,7 +139,7 @@ def colocate_xdarray(xda, verbose=True, **coords):
         assert (len(x) + 1) == len(bins), "bins must be one longer than centers"
         return bins
 
-    dims = xda.dims
+    dims = da.dims
     keys = list(coords.keys())
 
     coords = {k: np.array(v, ndmin=1) for k, v in coords.items()}
@@ -149,25 +149,25 @@ def colocate_xdarray(xda, verbose=True, **coords):
 
     assert len(coord_lengths) == 1, "All given coords need to be the same length"
     assert len(keys) > 0, "You need to have at least one coordinate to match"
-    assert len(not_matched) == 0, f"Coords are not in xda: {str(not_matched)}"
+    assert len(not_matched) == 0, f"Coords are not in da: {str(not_matched)}"
 
-    dtypes = {k: [xda[k].dtype, coords[k].dtype] for k in keys}
-    type_missmatch = [k for k in keys if coords[k].dtype.kind != xda[k].dtype.kind]
+    dtypes = {k: [da[k].dtype, coords[k].dtype] for k in keys}
+    type_missmatch = [k for k in keys if coords[k].dtype.kind != da[k].dtype.kind]
 
     assert len(type_missmatch) == 0, (
         f"Dimensions to not have the same type: "
         f"{str({k: dtypes[k] for k in type_missmatch})}"
     )
 
-    vprint("{}:".format(xda.name), end=" ")
+    vprint("{}:".format(da.name), end=" ")
 
     ranges = {k: slice(np.nanmin(coords[k]), np.nanmax(coords[k])) for k in keys}
 
-    xdr = xda.sel(**ranges)
+    xdr = da.sel(**ranges)
     if xdr.size > (720 * 1440 * 365 * 2):
         raise ValueError(
             f"the range of the input coordinates is too large to load for the "
-            f"given dataarray {xda.name} with a shape of {xda.shape}"
+            f"given dataarray {da.name} with a shape of {da.shape}"
         )
     elif xdr.size == 0:
         vprint("no data within coordinate ranges - returning nans")

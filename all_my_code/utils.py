@@ -61,7 +61,7 @@ def snake_to_camel(snake_str):
 
 class add_docs_line1_to_attribute_history(object):
     def __init__(self, func):
-        self.func = func
+        self.func = get_unwrapped(func)
         self.name = func.__name__
         docs = func.__doc__
         self.msg = docs.strip().split("\n")[0] if isinstance(docs, str) else ""
@@ -69,11 +69,13 @@ class add_docs_line1_to_attribute_history(object):
     def __call__(self, *args, **kwargs):
         if len(args) == 1:
             try:
-                out = self._add_history(self.func(*args, **kwargs), args[0], kwargs)
+                out = self.func(*args, **kwargs)
+                # if input and output are the same, then don't add history
+                if out.equals(args[0]):
+                    return out
+                else:
+                    return self._add_history(out, args[0], kwargs)
                 return out
-            except AttributeError as e:
-                print(e)
-                return self.func(*args, **kwargs)
             except Exception as e:
                 raise e
                 return args[0]
@@ -84,7 +86,7 @@ class add_docs_line1_to_attribute_history(object):
     def __caller__(self, ds):
         return self._add_history(self.func(ds, **self.kwargs))
 
-    def _add_history(self, ds, old, kwargs, key='history'):
+    def _add_history(self, new, old, kwargs, key='history'):
         from pandas import Timestamp
 
         version = f".{__version__}" if __version__ else ""
@@ -102,9 +104,9 @@ class add_docs_line1_to_attribute_history(object):
             hist = [h.strip() for h in hist]
             msg = "; ".join(hist + [msg])
             
-        ds = ds.assign_attrs({key: msg})
+        new = new.assign_attrs({key: msg})
 
-        return ds
+        return new
 
 
 def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
@@ -134,6 +136,7 @@ def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
 
     def wrapped_function(func):
         from functools import wraps
+        func = add_docs_line1_to_attribute_history(func)
         og_func = get_unwrapped(func)
         @wraps(og_func)
         def dynamic_function(self, *args, **kwargs):

@@ -1,5 +1,5 @@
 from os import access
-from ..utils import make_xarray_accessor as _make_xarray_accessor, add_docs_line1_to_attribute_history
+from ..utils import make_xarray_accessor as _make_xarray_accessor
 import xarray as xr
 import numpy as np
 import joblib
@@ -27,7 +27,6 @@ def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
     return trends
 
 
-@add_docs_line1_to_attribute_history
 def slope(da, dim='time'):
     """
     Calculate the first order linear slope per {dim} unit
@@ -59,7 +58,6 @@ def slope(da, dim='time'):
     return slope
 
 
-@add_docs_line1_to_attribute_history
 def climatology(da, tile=False, groupby_dim='time.month'):
     """
     Calculate the climatology of a time series
@@ -84,7 +82,6 @@ def climatology(da, tile=False, groupby_dim='time.month'):
     return clim
 
 
-@add_docs_line1_to_attribute_history
 def deseasonalise(da, groupby_dim='time.month'):
     """
     Remove the seasonal cycle from the time series
@@ -112,7 +109,6 @@ def deseasonalise(da, groupby_dim='time.month'):
     return deseasonalised
 
 
-@add_docs_line1_to_attribute_history
 def trend(da, dim='time', deg=1, coef=None):
     """
     The trend over the given dimension
@@ -153,7 +149,6 @@ def trend(da, dim='time', deg=1, coef=None):
     return trend
 
 
-@add_docs_line1_to_attribute_history
 def detrend(da, dim='time', deg=1, coef=None):
     """
     Remove the trend along the [time] dimension
@@ -178,7 +173,6 @@ def detrend(da, dim='time', deg=1, coef=None):
     return da_detrend
 
 
-@add_docs_line1_to_attribute_history
 def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     """
     Full linear regression with all stats (coefs, r2, pvalue, rmse, +)
@@ -277,7 +271,6 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     return fit
 
 
-@add_docs_line1_to_attribute_history
 def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_poly_order=1, dim='time'):
     """
     Calculate time of emergence based on standard deviation 
@@ -320,7 +313,6 @@ def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_
     return toe
         
 
-@add_docs_line1_to_attribute_history
 def interannual_variability(da, dim='time'):
     """
     Calculate the interannual variability of a time series
