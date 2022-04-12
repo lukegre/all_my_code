@@ -19,6 +19,7 @@ from .grid import (
     lon_180W_180E, 
     lon_0E_360E, 
     coord_05_offset, 
+    interp_bilinear,
     interp)
 from .conform import (
     transpose_dims,
@@ -38,6 +39,7 @@ _make_xarray_accessor(
         coord_05_offset,
         colocate_dataarray,
         interp,
+        interp_bilinear,
     ],
     accessor_type='both'
 )

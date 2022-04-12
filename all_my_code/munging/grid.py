@@ -72,7 +72,61 @@ def coord_05_offset(ds, center=0.5, coord_name='lon'):
     return ds
 
 
-def interp(ds, lon_name='lon', roll_by=10, **kwargs):
+def interp_bilinear(ds, weights_fname=None, res=0.25, like=None, **kwargs):
+    """
+    Interpolate data using a bilinear interpolation (xesmf)
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+    weights_fname: str
+        path to the weights file - will be created if it doesn't exist, 
+        and will be loaded if it exists. Note that if resolution (res)
+        is changed, the a new weights file will have to be created. 
+    res: float
+        resolution of the grid to interpolate to
+    like: xr.Dataset
+        dataset to use as a template for the new grid - ignores res if given
+    **kwargs:
+        passed to xesmf.Regridder. The method can be overwridden by passing
+        method='<other method>'. extrap_method is set to nearest_s2d by default
+    """
+    import os
+    import xesmf as xe
+    import xarray as xr
+
+    m = 'bilinear and conservative interpolation'
+    print(f'xesmf will be used for {m}')
+
+    if weights_fname is None:
+        raise KeyError('weights_fname must be a file path')
+
+    if os.path.exists(weights_fname):
+        kwargs['weights'] = xr.open_dataset(weights_fname)
+    else:
+        kwargs['weights'] = None
+        print('It might take a while to calculate the weights')
+
+    if like is None:
+        like = xe.util.grid_global(res, res, cf=True)
+
+    props = dict(extrap_method='nearest_s2d')
+    props.update(**kwargs)
+    method = props.get('method', 'bilinear')
+
+    try:
+        Regridder = xe.Regridder(ds, like, method, **props)
+    except ValueError as e:
+        raise ValueError(
+            'invalid entry in coordinates array. '
+            'Weights may not match the desired resolution')
+    if not os.path.exists(weights_fname):
+        Regridder.to_netcdf(weights_fname)
+
+    return Regridder(ds)
+
+
+def interp(ds, lon_name='lon', roll_by=10, method='linear', **kwargs):
     """
     Interpolate and fill the longitude gap in a dataset
 
@@ -83,15 +137,19 @@ def interp(ds, lon_name='lon', roll_by=10, **kwargs):
         name of the longitude coordinate
     roll_by: int
         number of grid points to roll the data by - must be more than the gap
+        if interpolating from low to high resolution this will be a problem
     **kwargs:
         passed to xr.interp
     """
+
+    props = dict(**kwargs)
+    props.update(method=method)
     interpolated = (
         ds
-        .interp(**kwargs)
+        .interp(**props)
         .roll(**{lon_name: roll_by}, roll_coords=False)
         .interpolate_na(lon_name, limit=int(roll_by / 2))
-        .roll(**{lon_name: -roll_by}, roll_coords=False)
-    )
+        .roll(**{lon_name: -roll_by}, roll_coords=False))
 
     return interpolated
+
