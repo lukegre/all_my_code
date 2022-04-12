@@ -48,3 +48,34 @@ def change_file_permissions(path, permission=774):
             except:
                 pass
             
+
+def get_fnames_recursive_search(basedir, include=[], exclude=[]):
+    """
+    Search and match file names in a directory (recursive)
+    
+    Parameters
+    ----------
+    basedir: str (must exist as a path)
+        the directory that you'd like to search through
+    include: list of str
+        the string patterns that must occur in the files you're looking for
+    exclude: list of str
+        string patterns you would like to exclude from the filenames
+        
+    Returns 
+    -------
+    A list of file names with the full path
+    """
+    import os
+    import re
+
+    flist = []
+    for path, subdir, files in os.walk(basedir):
+        for fname in files:
+            if all([p in fname for p in include]):
+                has_excluded = [s in fname for s in exclude]
+                if not any(has_excluded):
+                    flist += os.path.join(path, fname),
+
+    flist = np.sort(flist)
+    return flist
