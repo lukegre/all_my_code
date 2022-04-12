@@ -1,17 +1,21 @@
 
 
-def fay_any_mckinley_2014_biomes(save_dir="~/Downloads"):
+def fay_any_mckinley_2014_biomes():
     """
     Download the Fay and McKinley (2014) biomes and conform
+
+    Data is not downloaded to disk, but loaded to memory. Save as a netcdf file
+    to save the data to disk
     """
     from xarray import open_dataset, merge
     from pandas import DataFrame
-    from ..files.download import download_file
+    from fsspec import open
+    import numpy as np
 
 
     url = "https://epic.awi.de/id/eprint/34786/19/Time_Varying_Biomes.nc"
-    fname = download_file(url, path=save_dir)
-    fm14 = open_dataset(fname).conform()
+    file_obj = open(url).open()
+    fm14 = open_dataset(file_obj).conform(standardize_var_names=True)
 
     fm14 = fm14.assign_attrs(
         source=url,
@@ -43,6 +47,24 @@ def fay_any_mckinley_2014_biomes(save_dir="~/Downloads"):
         .rename(index='biome_number')
     )
 
-    fm14 = merge([fm14, names])
+    fm14 = merge([fm14, names]).fillna(0)
+    for key in fm14:
+        da = fm14[key].load()
+        if da.dtype == np.float_:
+            da = da.astype(np.int8)
+            fm14[key] = da
 
     return fm14
+
+
+def reccap2_regions():
+    import xarray as xr
+    import fsspec
+    url = (
+        "https://github.com/RECCAP2-ocean/R2-shared-resources/raw"
+        "/master/data/regions/RECCAP2_region_masks_all_v20210412.nc")
+    ds = xr.open_dataset(fsspec.open(url).open())
+
+    ds = ds.conform(coord_names=False, squeeze=False, transpose=False)
+
+    return ds

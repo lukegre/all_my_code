@@ -6,7 +6,7 @@ from . import munging
 from . import stats
 from . import files
 from . import analyse
-from . import data
+from . import datasets
 
 
 try:
@@ -14,3 +14,6 @@ try:
 except DistributionNotFound:
     __version__ = "version_undefined"
 del get_distribution, DistributionNotFound
+
+
+data = datasets._amc_Data()
