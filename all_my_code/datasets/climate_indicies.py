@@ -118,7 +118,7 @@ def ocean_nino_index():
     df.columns = ['year', 'month', 'oni']
     df = df.astype(dict(year=str, month=str, oni=float))
     df['time'] = pd.to_datetime(df.year + '-' + df.month.str.zfill(2))
-    oni = df.set_index('time')['oni'].to_xarray()
+    oni = df.set_index('time')['oni'].to_xarray().rename('ocean_nino_index')
     
     dt = np.timedelta64(14, 'D')
     oni = oni.assign_coords(time=lambda x: x.time.values.astype('datetime64[M]') + dt)
@@ -186,3 +186,50 @@ def mauna_loa_xco2():
         ))
     
     return da
+
+
+def pacific_decadal_oscillation():
+    """Download the Pacific Decadal Oscillation data from the NOAA website."""
+    url = "https://psl.noaa.gov/data/correlation/pdo.data"
+    df = pd.read_fwf(
+        url, 
+        infer_nrows=10, 
+        index_col=0, 
+        names=range(1, 13), 
+        skiprows=1,
+        na_values=-9.9,
+    ).iloc[:2022-1948].astype(float).T.unstack(level=0)
+
+    df = df.reset_index()
+    df.columns = ['year', 'month', 'pdo']
+    df = df.astype(dict(year=str, month=str, pdo=float))
+    df['time'] = pd.to_datetime(df.year + '-' + df.month.str.zfill(2))
+    pdo = df.set_index('time')['pdo'].to_xarray().where(lambda x: x > -9).rename('pacific_decadal_oscillation')
+    
+    dt = np.timedelta64(14, 'D')
+    pdo = pdo.assign_coords(time=lambda x: x.time.values.astype('datetime64[M]') + dt)
+    pdo = pdo.assign_attrs(
+        source=url,
+        webpage="https://www.cen.uni-hamburg.de/en/icdc/data/climate-indices/climate-patterns-of-ocean-and-atmosphere.html#pdo",
+        description=(
+            "The Pacific Decadal Oscillation (PDO) is similar to the El-Niño pattern, but is "
+            "long-living and describes most of the climate variability of the Pacific. There "
+            "appear to be two modes with different spatial and temporal characteristics of the "
+            "surface temperature of the North Pacific. PDO affects the southern Hemisphere and "
+            "effects on surface climate anomalies over the central South Pacific, Australia and "
+            "South America have been observed. Inter-decadal changes in the Pacific climate have "
+            "far-reaching effects on natural systems, including water resources in America and "
+            "many marine fisheries in the North Pacific. The mechanisms that cause the variability "
+            "of PDO are still unclear. "
+            "Pacific Decadal Oscillation is defined as the leading PC of monthly SST anomalies "
+            "in the North Pacific Ocean. The extreme phases of the PDO are classified as warm or "
+            "cool, derived as the leading principal component of monthly sea surface temperature "
+            "anomalies in the North Pacific Ocean poleward of 20°N (Zhang et. al. 1997). Several "
+            "independent studies have shown only two complete PDO cycles in the past century: "
+            "cool PDO regimes prevailed from 1890 to 1924 and again from 1947 to 1976, while warm "
+            " PDO regimes dominated from 1925 to 1946 and from 1977 to the mid-1990' "
+            "(Mantua et al. 2002). The main difference of PDO to ENSO is that PDO is acting on "
+            "longer time scales (20-30 years) and affecting mainly the North Pacific sector. "))
+
+    return pdo
+

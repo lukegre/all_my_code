@@ -11,6 +11,7 @@ class _amc_Data:
         - mauna loa xco2
         - ocean nino index
         - southern annualar mode
+        - pacific decadal oscillation
         - fay and mckinley 2014 CO2 biomes
         - reccap2 regions for global CO2 analysis
     """
@@ -26,6 +27,11 @@ class _amc_Data:
     def ocean_nino_index(self):
         from . climate_indicies import ocean_nino_index
         return ocean_nino_index()
+
+    @cached_property
+    def pacific_decadal_oscillation(self):
+        from . climate_indicies import pacific_decadal_oscillation
+        return pacific_decadal_oscillation()
 
     @cached_property
     def southern_annular_mode(self):
