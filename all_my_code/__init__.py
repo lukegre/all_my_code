@@ -7,6 +7,8 @@ from . import stats
 from . import files
 from . import analyse
 from . import datasets
+from .munging import date_utils
+from .files.download import download_file
 
 
 try:
