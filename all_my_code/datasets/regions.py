@@ -15,7 +15,7 @@ def fay_any_mckinley_2014_biomes():
 
     url = "https://epic.awi.de/id/eprint/34786/19/Time_Varying_Biomes.nc"
     file_obj = open(url).open()
-    fm14 = open_dataset(file_obj).conform(standardize_var_names=True)
+    fm14 = open_dataset(file_obj).conform(rename_vars_snake_case=True)
 
     fm14 = fm14.assign_attrs(
         source=url,
@@ -65,6 +65,13 @@ def reccap2_regions():
         "/master/data/regions/RECCAP2_region_masks_all_v20210412.nc")
     ds = xr.open_dataset(fsspec.open(url).open())
 
-    ds = ds.conform(coord_names=False, squeeze=False, transpose=False)
+    ds = ds.conform(
+        correct_coord_names=False, 
+        drop_0d_coords=False, 
+        transpose_dims=False)
 
     return ds
+
+
+def seamask():
+    return reccap2_regions()['seamask']

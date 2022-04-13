@@ -20,30 +20,35 @@ class _amc_Data:
 
     @cached_property
     def mauna_loa_xco2(self):
-        from . climate_indicies import mauna_loa_xco2
-        return mauna_loa_xco2()
+        from . climate_indicies import mauna_loa_xco2 as func
+        return func()
 
     @cached_property
     def ocean_nino_index(self):
-        from . climate_indicies import ocean_nino_index
-        return ocean_nino_index()
+        from . climate_indicies import ocean_nino_index as func
+        return func()
 
     @cached_property
     def pacific_decadal_oscillation(self):
-        from . climate_indicies import pacific_decadal_oscillation
-        return pacific_decadal_oscillation()
+        from . climate_indicies import pacific_decadal_oscillation as func
+        return func()
 
     @cached_property
     def southern_annular_mode(self):
-        from . climate_indicies import southern_annular_mode
-        return southern_annular_mode()
+        from . climate_indicies import southern_annular_mode as func
+        return func()
 
     @cached_property
     def fay_any_mckinley_2014_biomes(self):
-        from . regions import fay_any_mckinley_2014_biomes
-        return fay_any_mckinley_2014_biomes()
+        from . regions import fay_any_mckinley_2014_biomes as func
+        return func()
     
     @cached_property
     def reccap2_regions(self):
-        from . regions import reccap2_regions
-        return reccap2_regions()
+        from . regions import reccap2_regions as func
+        return func()
+
+    @cached_property
+    def seamask(self):
+        from . regions import seamask as func
+        return func()
