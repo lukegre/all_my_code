@@ -46,6 +46,8 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, pre
     
     if fname is None:
         fname = posixpath(url).name
+
+    path = str(posixpath(path).expanduser().resolve())
         
     if progress:
         downloader = kwargs.get('downloader', None)
@@ -67,7 +69,8 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, pre
             elif '.tar' in url:
                 kwargs['processor'] = pooch.processors.Untar(extract_dir=path)
             elif ('.gz' in url) or ('.bz2' in url) or ('.xz' in url):
-                kwargs['processors'] = pooch.processors.Decompress(extract_dir=path)
+                decomp_name = fname.replace('.gz', '').replace('.bz2', '').replace('.xz', '')
+                kwargs['processor'] = pooch.processors.Decompress(name=decomp_name)
     
     props = dict(fname=fname, path=path)
     props.update(kwargs)
