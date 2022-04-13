@@ -229,11 +229,7 @@ def interp(ds, res=1, like=None, method='linear', recommendation='warn', **kwarg
             dims=['lat', 'lon'],
             coords={'lat': kwargs.pop('lat'), 'lon': kwargs.pop('lon')})
     elif like is None:
-        like = xr.DataArray(
-            dims=['lat', 'lon'],
-            coords={
-                'lat': np.arange(-90 + res / 2, 90, res), 
-                'lon': np.arange(-180 + res / 2, 180, res)})
+        like = _make_like_array(res)
     
     assert ('lat' in like.coords) and ('lon' in like.coords), "'like' must have lat and lon coordinates"
 
@@ -272,3 +268,17 @@ def _is_interp_best(iy, ix, oy, ox, recommendation='warn'):
             raise ValueError(message)
         elif recommendation == 'ignore':
             pass
+
+
+def _make_like_array(resolution):
+    import xarray as xr
+    import numpy as np
+
+    r = resolution
+    grids = xr.DataArray(
+        dims=['lat', 'lon'],
+        coords={
+            'lat': np.arange(-90 + r / 2, 90, r), 
+            'lon': np.arange(-180 + r / 2, 180, r)})
+
+    return grids
