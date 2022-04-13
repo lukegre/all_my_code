@@ -110,17 +110,20 @@ class _amc_Data:
     @_wraps(carbon.oceansoda_ethz)
     def oceansoda_ethz(self, *args, **kwargs):
         from . carbon import oceansoda_ethz as func
-        kwargs.update(save_dir=self.download_dest)
-        return func(*args, **kwargs)
+        props = dict(save_dir=self.download_dest)
+        props.update(kwargs)
+        return func(*args, **props)
 
     @_wraps(carbon.socat_gridded)
     def socat_gridded(self, *args, **kwargs):
         from . carbon import socat_gridded as func
-        kwargs.update(save_dir=self.download_dest)
-        return func(*args, **kwargs)
+        props = dict(save_dir=self.download_dest)
+        props.update(kwargs)
+        return func(*args, **props)
 
     @_wraps(carbon.seaflux)
     def seaflux(self, *args, **kwargs):
         from . carbon import seaflux as func
-        kwargs.update(save_dir=self.download_dest)
-        return func(*args, **kwargs)
+        props = dict(save_dir=self.download_dest)
+        props.update(kwargs)
+        return func(*args, **props)
