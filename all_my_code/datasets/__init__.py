@@ -21,6 +21,7 @@ class _amc_Data:
     def __init__(self):
         self.res = 0.25
         self.sam_freq = 'monthly'
+        self.download_dest = '~/Data/cached'
 
     def __repr__(self):
         def make_pretty_dataset_repr(funclist):
@@ -99,27 +100,27 @@ class _amc_Data:
     @_cached_property
     def seafrac(self):
         from . masks import seafrac as func
-        return func(resolution=self.res).load()
+        return func(resolution=self.res, save_dir=self.download_dest)
 
     @_cached_property
     def topography(self):
         from . masks import topography as func
-        return func(resolution=self.res).load()
+        return func(resolution=self.res, save_dir=self.download_dest)
 
-    @staticmethod
     @_wraps(carbon.oceansoda_ethz)
-    def oceansoda_ethz(*args, **kwargs):
+    def oceansoda_ethz(self, *args, **kwargs):
         from . carbon import oceansoda_ethz as func
+        kwargs.update(save_dir=self.download_dest)
         return func(*args, **kwargs)
 
-    @staticmethod
-    @_wraps(carbon.socat)
-    def socat(*args, **kwargs):
-        from . carbon import socat as func
+    @_wraps(carbon.socat_gridded)
+    def socat_gridded(self, *args, **kwargs):
+        from . carbon import socat_gridded as func
+        kwargs.update(save_dir=self.download_dest)
         return func(*args, **kwargs)
 
-    @staticmethod
     @_wraps(carbon.seaflux)
-    def seaflux(*args, **kwargs):
+    def seaflux(self, *args, **kwargs):
         from . carbon import seaflux as func
+        kwargs.update(save_dir=self.download_dest)
         return func(*args, **kwargs)

@@ -4,16 +4,16 @@ import xarray as xr
 import os
 
 
-def socat(version='2021', dest='~/Downloads/data/', delete_intermediate_files=True):
+def socat_gridded(version='2021', save_dir='~/Data/cached/', delete_intermediate_files=True):
     from pathlib import Path as posixpath
 
     url = f"https://www.socat.info/socat_files/v{version}/SOCATv{version}_tracks_gridded_monthly.nc.zip"
     fname = posixpath(url).name
-    zpath = os.path.join(os.path.expanduser(dest), fname)
-    fpath = os.path.join(os.path.expanduser(dest), fname.replace('.zip', ''))
+    zpath = os.path.join(os.path.expanduser(save_dir), fname)
+    fpath = os.path.join(os.path.expanduser(save_dir), fname.replace('.zip', ''))
 
     if not os.path.exists(fpath):
-        dpath = amc.download_file(url, dest, progress=True)
+        dpath = download_file(url, save_dir, progress=True)
         ds = xr.open_dataset(dpath).drop('tmnth_bnds')
         ds.to_netcdf_with_compression(fpath)
     
@@ -25,13 +25,13 @@ def socat(version='2021', dest='~/Downloads/data/', delete_intermediate_files=Tr
     return xr.open_dataset(fpath, chunks={}).conform()
 
 
-def _download_ethz_data(dest='~/Downloads/data/', version='2021'):
+def _download_ethz_data(save_dir='~/Data/cached/', version='2021'):
     """
     Downloads ETHZ data from the NOAA-NODC data archives
     
     Parameters
     ----------
-    dest: path string
+    save_dir: path string
         A path to where the data will be downloaded. Will be expanded so ~ 
         and relative paths can be used. Defaults to HOME/Downloads
     version: str[2021]
@@ -45,8 +45,8 @@ def _download_ethz_data(dest='~/Downloads/data/', version='2021'):
     from pooch import retrieve, HTTPDownloader
     from os.path import expanduser, abspath
     
-    dest = expanduser(dest)
-    dest = abspath(dest)
+    save_dir = expanduser(save_dir)
+    save_dir = abspath(save_dir)
     
     url = "https://www.nodc.noaa.gov/archive/arc0160/0220059/"
     if str(version) == '2020':
@@ -57,13 +57,13 @@ def _download_ethz_data(dest='~/Downloads/data/', version='2021'):
         url += f"3.3/data/0-data/{fname}"
     
     name = retrieve(
-        url, None, fname, path=dest, 
+        url, None, fname, path=save_dir, 
         downloader=HTTPDownloader(progressbar=True))
     
     return name
 
 
-def oceansoda_ethz(dest='~/Downloads/data/', version='2021'):
+def oceansoda_ethz(save_dir='~/Data/cached/', version='2021'):
     """
     Downloads and homogenises variable names for the different ETHZ versions 
     (2020, 2021). Names are changed to match the v2021 output
@@ -73,7 +73,7 @@ def oceansoda_ethz(dest='~/Downloads/data/', version='2021'):
     
     Parameters
     ----------
-    dest: path string
+    save_dir: path string
         A path to where the data will be downloaded. Will be expanded so ~ 
         and relative paths can be used. Defaults to HOME/Downloads
     version: str[2021]
@@ -85,7 +85,7 @@ def oceansoda_ethz(dest='~/Downloads/data/', version='2021'):
     
     """
     
-    fname = _download_ethz_data(dest, version)
+    fname = _download_ethz_data(save_dir, version)
     ds = xr.open_dataset(fname)
     
     # unifying 2020 to 2021 naming (2020 names are not same as 2021)
@@ -118,7 +118,7 @@ def oceansoda_ethz(dest='~/Downloads/data/', version='2021'):
     return ds
 
 
-def seaflux(var_name='pco2atm', dest='~/Downloads/data/'):
+def seaflux(var_name='pco2atm', save_dir='~/Data/cached/'):
     """
     Downloads the SeaFlux dataset from Zenodo
 
@@ -127,7 +127,7 @@ def seaflux(var_name='pco2atm', dest='~/Downloads/data/'):
     var_name: str | list
         The variable to download: fgco2, spco2_unfilled, spco2_filler,
         pco2atm, area, ice, sol, kw
-    dest: path string
+    save_dir: path string
         A path to where the data will be downloaded. Will be expanded so ~
         and relative paths can be used. Defaults to HOME/Downloads
     
@@ -152,11 +152,11 @@ def seaflux(var_name='pco2atm', dest='~/Downloads/data/'):
 
     if isinstance(var_name, (list, tuple, np.ndarray)):
         assert all([v in variables.keys() for v in var_name]), msg
-        out = [seaflux(v, dest=dest) for v in var_name]
+        out = [seaflux(v, save_dir=save_dir) for v in var_name]
         return xr.merge(out)
     
     elif isinstance(var_name, str):
         assert var_name in variables.keys(), msg
         url = variables[var_name]
-        fname = download_file(url, path=dest, progress=True)
+        fname = download_file(url, path=save_dir, progress=True)
         return xr.open_dataset(fname,  chunks={}).conform()

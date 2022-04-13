@@ -100,7 +100,7 @@ def seafrac(resolution=1/4, save_dir=gettempdir()):
     xarray.Dataset
         Dataset containing the fraction of ocean
     """
-    return make_etopo_mask(res=resolution, path=save_dir).sea_frac
+    return make_etopo_mask(res=resolution, save_dir=save_dir).sea_frac
 
 
 def topography(resolution=1/4, save_dir=gettempdir()):
@@ -118,20 +118,19 @@ def topography(resolution=1/4, save_dir=gettempdir()):
         Dataset containing the topography average
         deviation based on 1 arc-minute resolution
     """
-    return make_etopo_mask(res=resolution, path=save_dir).topo_avg
+    return make_etopo_mask(res=resolution, save_dir=save_dir).topo_avg
 
 
-def make_etopo_mask(res=1/4, path=gettempdir(), delete_intermediate_files=False):
+def make_etopo_mask(res=1/4, save_dir=gettempdir(), delete_intermediate_files=True):
     """
     Downloads ETOPO1 data and creates a new file containing
     - average height
     - standard deviation of height (from pixels in original file)
     - fraction of ocean 
-    - ocean mask
     """
     import xarray as xr
 
-    ds = _fetch_etopo(path=path, delete_intermediate_files=delete_intermediate_files)
+    ds = _fetch_etopo(save_dir=save_dir, delete_intermediate_files=delete_intermediate_files)
 
     # the coarsening step is determined by 60min / res to get to degrees
     d = int(60 * res)
@@ -147,7 +146,7 @@ def make_etopo_mask(res=1/4, path=gettempdir(), delete_intermediate_files=False)
     return out
 
 
-def _fetch_etopo(path=gettempdir(), delete_intermediate_files=True):
+def _fetch_etopo(save_dir=gettempdir(), delete_intermediate_files=True):
     """
     Fetch ETOPO1 data and return it as an xarray.Dataset
 
@@ -155,7 +154,7 @@ def _fetch_etopo(path=gettempdir(), delete_intermediate_files=True):
     
     Parameters
     ----------
-    path : str
+    save_dir : str
         Path to the directory where the data should be stored. Default 
         is the system's temporary directory.
     delete_intermediate_files : bool [False]
@@ -175,14 +174,14 @@ def _fetch_etopo(path=gettempdir(), delete_intermediate_files=True):
         "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data"
         "/ice_surface/cell_registered/netcdf/ETOPO1_Ice_c_gmt4.grd.gz")
     
-    fname = os.path.join(path, posixpath(url).name).replace('grd.gz', 'nc')
+    fname = os.path.join(save_dir, posixpath(url).name).replace('grd.gz', 'nc')
     if not os.path.isfile(fname):
         print(
             'Downloading ETOPO1 data - this is only done once (unless you delete the '
             f'tmp directory). The final file will be saved at {fname} '
             'and has a size of roughly 250MB. All other intermediate files will be deleted.'
         )
-        tmp_fname = download_file(url, path=path)
+        tmp_fname = download_file(url, path=save_dir)
         tmp_data = xr.open_dataset(tmp_fname).assign_attrs(source=url, dest=fname)
         tmp_data.astype('int16').to_netcdf(fname, encoding={'z': {'complevel': 1, 'zlib': True}})
         if delete_intermediate_files:
