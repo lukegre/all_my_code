@@ -14,54 +14,46 @@ from xarray import (
     register_dataarray_accessor as _register_dataarray)
 
 
-from .colocation import colocate_dataarray
+from .colocation import colocate_dataarray as _colocate_dataarray
 from .grid import (
-    lon_180W_180E, 
-    lon_0E_360E, 
-    coord_05_offset, 
-    interp_bilinear,
-    interp)
+    lon_180W_180E as _lon_180W_180E, 
+    lon_0E_360E as _lon_0E_360E, 
+    coord_05_offset as _coord_05_offset, 
+    regrid as _regrid,
+    interp as _interp)
 from .conform import (
-    transpose_dims,
-    correct_coord_names,
-    time_center_monthly,
-    drop_0d_coords,
-    rename_vars_snake_case,
-    apply_process_pipeline,
+    transpose_dims as _transpose_dims,
+    correct_coord_names as _correct_coord_names,
+    time_center_monthly as _time_center_monthly,
+    drop_0d_coords as _drop_0d_coords,
+    rename_vars_snake_case as _rename_vars_snake_case,
+    apply_process_pipeline as _apply_process_pipeline,
 )
     
 
 _make_xarray_accessor(
     "grid",
     [
-        lon_180W_180E,
-        lon_0E_360E,
-        coord_05_offset,
-        colocate_dataarray,
-        interp,
-        interp_bilinear,
+        _lon_180W_180E,
+        _lon_0E_360E,
+        _coord_05_offset,
+        _colocate_dataarray,
+        _interp,
+        _regrid,
     ],
     accessor_type='both'
 )
 
 
 _func_registry = [
-    lon_0E_360E,
-    lon_180W_180E,
-    coord_05_offset,
-    transpose_dims,
-    correct_coord_names,
-    rename_vars_snake_case,
-    time_center_monthly,
-    drop_0d_coords,
-]
-
-_default_conform = [
-    correct_coord_names,
-    transpose_dims,
-    lon_180W_180E,
-    time_center_monthly,
-    rename_vars_snake_case,
+    _lon_0E_360E,
+    _lon_180W_180E,
+    _coord_05_offset,
+    _transpose_dims,
+    _correct_coord_names,
+    _rename_vars_snake_case,
+    _time_center_monthly,
+    _drop_0d_coords,
 ]
 
 
@@ -91,31 +83,31 @@ class DataConform(object):
 
     def __call__(
         self, 
-        coord_names=True,
-        time_centered=False,
-        squeeze=True,
-        transpose=True,
-        lon_180W=True,
-        standardize_var_names=False,
+        correct_coord_names=True,
+        time_center_monthly=False,
+        drop_0d_coords=True,
+        transpose_dims=True,
+        lon_180W_180E=True,
+        rename_vars_snake_case=False,
     ):
         da = self._obj
 
         funclist = []
-        if coord_names:
-            funclist.append(correct_coord_names)
-        if time_centered:
-            funclist.append(time_center_monthly)
-        if squeeze:
-            funclist.append(drop_0d_coords)
-        if transpose:
-            funclist.append(transpose_dims)
-        if lon_180W:
-            funclist.append(lon_180W_180E)
-        if standardize_var_names:
-            funclist.append(rename_vars_snake_case)
+        if correct_coord_names:
+            funclist.append(_correct_coord_names)
+        if time_center_monthly:
+            funclist.append(_time_center_monthly)
+        if drop_0d_coords:
+            funclist.append(_drop_0d_coords)
+        if transpose_dims:
+            funclist.append(_transpose_dims)
+        if lon_180W_180E:
+            funclist.append(_lon_180W_180E)
+        if rename_vars_snake_case:
+            funclist.append(_rename_vars_snake_case)
 
         funclist = [add_docs_line1_to_attribute_history(f) for f in funclist]
-        out = apply_process_pipeline(da, *funclist)
+        out = _apply_process_pipeline(da, *funclist)
 
         return out
 
