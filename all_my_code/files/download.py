@@ -65,12 +65,11 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, pre
         decompressor = kwargs.get('processor', None)
         if decompressor is None:
             if '.zip' in url:
-                kwargs['processor'] = pooch.processors.Unzip(extract_dir=path)
+                kwargs['processor'] = pooch.processors.Unzip()
             elif '.tar' in url:
-                kwargs['processor'] = pooch.processors.Untar(extract_dir=path)
+                kwargs['processor'] = pooch.processors.Untar()
             elif ('.gz' in url) or ('.bz2' in url) or ('.xz' in url):
-                decomp_name = fname.replace('.gz', '').replace('.bz2', '').replace('.xz', '')
-                kwargs['processor'] = pooch.processors.Decompress(name=decomp_name)
+                kwargs['processor'] = pooch.processors.Decompress()
     
     props = dict(fname=fname, path=path)
     props.update(kwargs)
@@ -84,8 +83,7 @@ def download_file(url, path='.', fname=None, progress=True, decompress=True, pre
     if isinstance(flist, list):
         if len(flist) == 1:
             return flist[0]
-    else:
-        return flist
+    return flist
 
 
 def get_flist_from_url(
