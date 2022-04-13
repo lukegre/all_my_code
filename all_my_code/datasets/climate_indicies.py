@@ -138,7 +138,7 @@ def ocean_nino_index():
 
 
 def mauna_loa_xco2():
-    """Download atmospheric CO2 data from Mauna Loa Observatory."""
+    """Download monthly mean atmospheric CO2 data from Mauna Loa Observatory."""
     from ..munging.date_utils import decimal_year_to_datetime
 
     cols = np.array([
