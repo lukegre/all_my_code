@@ -186,7 +186,6 @@ def _fetch_etopo(save_dir=gettempdir(), delete_intermediate_files=True):
         tmp_data.astype('int16').to_netcdf(fname, encoding={'z': {'complevel': 1, 'zlib': True}})
         if delete_intermediate_files:
             os.remove(tmp_fname)
-            os.remove(tmp_fname + '.gz')
     
     # load with mfdataset to ensure that we're chunking the data
     # then we conform the data so that x, y are renamed to lat, lon
