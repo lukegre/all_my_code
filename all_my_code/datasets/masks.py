@@ -174,7 +174,7 @@ def _fetch_etopo(save_dir=gettempdir(), delete_intermediate_files=True):
         "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data"
         "/ice_surface/cell_registered/netcdf/ETOPO1_Ice_c_gmt4.grd.gz")
     
-    fname = os.path.join(save_dir, posixpath(url).name).replace('grd.gz', 'nc')
+    fname = os.path.join(os.path.expanduser(save_dir), posixpath(url).name).replace('grd.gz', 'nc')
     if not os.path.isfile(fname):
         print(
             'Downloading ETOPO1 data - this is only done once (unless you delete the '
