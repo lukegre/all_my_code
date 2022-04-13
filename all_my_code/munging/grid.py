@@ -73,7 +73,7 @@ def coord_05_offset(ds, center=0.5, coord_name='lon'):
     return ds
 
 
-def regrid(ds, weights_path=gettempdir(), res=1, like=None, keep_attrs=True, verbose=True, **kwargs):
+def regrid(ds, weights_path=gettempdir(), res=1, like=None, keep_attrs=True, verbose=True, recommendation='raise', **kwargs):
     """
     Regrid data using xesmf 
 
@@ -147,8 +147,8 @@ def regrid(ds, weights_path=gettempdir(), res=1, like=None, keep_attrs=True, ver
     if like is None:
         like = xe.util.grid_global(res, res, cf=True)
     
-    _is_interp_best(ds.lat, ds.lon, like.lat, like.lon)
-
+    _is_interp_best(ds.lat, ds.lon, like.lat, like.lon, recommendation)
+        
     method = kwargs.pop('method', 'bilinear')
 
     m = 'bilinear and conservative interpolation'
@@ -207,7 +207,7 @@ def regrid(ds, weights_path=gettempdir(), res=1, like=None, keep_attrs=True, ver
     return interpolated
 
 
-def interp(ds, res=1, like=None, roll_by=10, method='linear', **kwargs):
+def interp(ds, res=1, like=None, method='linear', recommendation='warn', **kwargs):
     """
     Interpolate and fill the longitude gap in a dataset
 
@@ -237,10 +237,11 @@ def interp(ds, res=1, like=None, roll_by=10, method='linear', **kwargs):
     
     assert ('lat' in like.coords) and ('lon' in like.coords), "'like' must have lat and lon coordinates"
 
-    _is_interp_best(ds.lat, ds.lon, like.lat, like.lon)
+    _is_interp_best(ds.lat, ds.lon, like.lat, like.lon, recommendation)
 
     props = dict(**kwargs)
     props.update(method=method)
+    roll_by = int(like.lon.size // 3)
     interpolated = (
         ds
         .interp_like(like, **props)
@@ -251,7 +252,7 @@ def interp(ds, res=1, like=None, roll_by=10, method='linear', **kwargs):
     return interpolated
 
 
-def _is_interp_best(iy, ix, oy, ox):
+def _is_interp_best(iy, ix, oy, ox, recommendation='warn'):
     from warnings import warn
 
     idx = ix.diff('lon', 1).median().values
@@ -261,7 +262,13 @@ def _is_interp_best(iy, ix, oy, ox):
     ratio_x = odx / idx
     ratio_y = ody / idy
     if (ratio_x > 2) | (ratio_y > 2):
-        warn(
-            "The output grid is less than half the resolution of the input grid. "
-            "Interpolation may not be the best approach. "
-            f"Consider using da.coarsen(lat={ratio_y:.0f}, lon={ratio_x:.0f}).mean()")
+        message = (
+                "The output grid is less than half the resolution of the input grid. "
+                "Interpolation may not be the best approach. "
+                f"Consider using da.coarsen(lat={ratio_y:.0f}, lon={ratio_x:.0f}).mean()")
+        if recommendation == 'warn':
+            warn(message)
+        elif recommendation == 'raise':
+            raise ValueError(message)
+        elif recommendation == 'ignore':
+            pass
