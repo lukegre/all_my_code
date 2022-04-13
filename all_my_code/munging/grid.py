@@ -73,7 +73,7 @@ def coord_05_offset(ds, center=0.5, coord_name='lon'):
     return ds
 
 
-def regrid(ds, weights_path=gettempdir(), res=0.25, like=None, keep_attrs=True, verbose=True, **kwargs):
+def regrid(ds, weights_path=gettempdir(), res=1, like=None, keep_attrs=True, verbose=True, **kwargs):
     """
     Regrid data using xesmf 
 
@@ -146,6 +146,8 @@ def regrid(ds, weights_path=gettempdir(), res=0.25, like=None, keep_attrs=True, 
 
     if like is None:
         like = xe.util.grid_global(res, res, cf=True)
+    
+    _is_interp_best(ds.lat, ds.lon, like.lat, like.lon)
 
     method = kwargs.pop('method', 'bilinear')
 
@@ -205,7 +207,7 @@ def regrid(ds, weights_path=gettempdir(), res=0.25, like=None, keep_attrs=True, 
     return interpolated
 
 
-def interp(ds, lon_name='lon', roll_by=10, method='linear', **kwargs):
+def interp(ds, res=1, like=None, roll_by=10, method='linear', **kwargs):
     """
     Interpolate and fill the longitude gap in a dataset
 
@@ -220,15 +222,46 @@ def interp(ds, lon_name='lon', roll_by=10, method='linear', **kwargs):
     **kwargs:
         passed to xr.interp
     """
+    import numpy as np
+
+    if ('lat' in kwargs) or ('lon' in kwargs):
+        like = xr.DataArray(
+            dims=['lat', 'lon'],
+            coords={'lat': kwargs.pop('lat'), 'lon': kwargs.pop('lon')})
+    elif like is None:
+        like = xr.DataArray(
+            dims=['lat', 'lon'],
+            coords={
+                'lat': np.arange(-90 + res / 2, 90, res), 
+                'lon': np.arange(-180 + res / 2, 180, res)})
+    
+    assert ('lat' in like.coords) and ('lon' in like.coords), "'like' must have lat and lon coordinates"
+
+    _is_interp_best(ds.lat, ds.lon, like.lat, like.lon)
 
     props = dict(**kwargs)
     props.update(method=method)
     interpolated = (
         ds
-        .interp(**props)
-        .roll(**{lon_name: roll_by}, roll_coords=False)
-        .interpolate_na(lon_name, limit=int(roll_by / 2))
-        .roll(**{lon_name: -roll_by}, roll_coords=False))
+        .interp_like(like, **props)
+        .roll(**{'lon': roll_by}, roll_coords=False)
+        .interpolate_na('lon', limit=int(roll_by / 2))
+        .roll(**{'lon': -roll_by}, roll_coords=False))
 
     return interpolated
 
+
+def _is_interp_best(iy, ix, oy, ox):
+    from warnings import warn
+
+    idx = ix.diff('lon', 1).median().values
+    idy = iy.diff('lat', 1).median().values
+    odx = ox.diff('lon', 1).median().values
+    ody = oy.diff('lat', 1).median().values
+    ratio_x = odx / idx
+    ratio_y = ody / idy
+    if (ratio_x > 2) | (ratio_y > 2):
+        warn(
+            "The output grid is less than half the resolution of the input grid. "
+            "Interpolation may not be the best approach. "
+            f"Consider using da.coarsen(lat={ratio_y:.0f}, lon={ratio_x:.0f}).mean()")
