@@ -1,4 +1,5 @@
 from tempfile import gettempdir
+from ..munging.grid import _make_like_array
 
 
 def fay_any_mckinley_2014_biomes(resolution=1):
@@ -12,7 +13,6 @@ def fay_any_mckinley_2014_biomes(resolution=1):
     from pandas import DataFrame
     from fsspec import open
     import numpy as np
-    from ..munging import _make_like_array
 
     url = "https://epic.awi.de/id/eprint/34786/19/Time_Varying_Biomes.nc"
     file_obj = open(url).open()
@@ -66,7 +66,6 @@ def fay_any_mckinley_2014_biomes(resolution=1):
 def reccap2_regions(resolution=1):
     import xarray as xr
     import fsspec
-    from ..munging import _make_like_array
     
     url = (
         "https://github.com/RECCAP2-ocean/R2-shared-resources/raw"
