@@ -137,6 +137,7 @@ def seaflux(var_name='pco2atm', save_dir='~/Data/cached/'):
         The downloaded dataset
     """
     import numpy as np
+    import dask
 
     variables = dict(
         fgco2="https://zenodo.org/record/5482547/files/SeaFlux_v2021.04_fgco2_all_winds_products.nc", 
@@ -159,4 +160,6 @@ def seaflux(var_name='pco2atm', save_dir='~/Data/cached/'):
         assert var_name in variables.keys(), msg
         url = variables[var_name]
         fname = download_file(url, path=save_dir, progress=True)
-        return xr.open_dataset(fname,  chunks={}).conform()
+        with dask.config.set(**{'array.slicing.split_large_chunks': False}):
+            da = xr.open_dataset(fname,  chunks={}).conform()
+        return da
