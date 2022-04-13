@@ -70,3 +70,4 @@ junit.xml
 notebooks/**
 data/**
 all_my_code/_version.py
+**/.DS_Store
