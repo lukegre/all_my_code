@@ -9,7 +9,7 @@ class Save(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-    def __call__(self, sname, overwrite=False, compression='int16', **kwargs):
+    def __call__(self, sname, overwrite=False, compression='int16', max_percentile=99.999, **kwargs):
         """
         Save data to a netCDF file with compression.
 
@@ -53,7 +53,7 @@ class Save(object):
             return sname
 
         if compression == 'int16':
-            encoding = get_dataset_compression_encoding(ds)
+            encoding = get_dataset_compression_encoding(ds, max_percentile=max_percentile)
         elif compression == 'zip':
             encoding = {k: {'complevel': 4, 'zlib': True} for k in ds}
         else:
