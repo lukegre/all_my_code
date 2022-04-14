@@ -1,5 +1,6 @@
 from pkgutil import get_data
 from functools import wraps
+from numpy import isin
 import xarray as xr
 
 
@@ -137,6 +138,11 @@ def get_int_encoding(da, n=16, max_percentile=100):
         Value to set the maximum limit of the data. 
         I recommend values greater than 99.99
     """
+
+    from pandas.api.types import is_numeric_dtype
+
+    if not is_numeric_dtype(da.dtype):
+        return {}
     
     if max_percentile == 100:
         vmin = da.min().values
