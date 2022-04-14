@@ -19,7 +19,9 @@ from .grid import (
     lon_180W_180E as _lon_180W_180E, 
     lon_0E_360E as _lon_0E_360E, 
     coord_05_offset as _coord_05_offset, 
+    coarsen as _coarsen,
     regrid as _regrid,
+    resample as _resample,
     interp as _interp)
 from .conform import (
     transpose_dims as _transpose_dims,
@@ -40,8 +42,11 @@ _make_xarray_accessor(
         _colocate_dataarray,
         _interp,
         _regrid,
+        _coarsen,
+        _resample,
     ],
-    accessor_type='both'
+    accessor_type='both',
+    add_docs_line_to_history=False,
 )
 
 

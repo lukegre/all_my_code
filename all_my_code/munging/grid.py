@@ -1,6 +1,6 @@
 import xarray as xr
 from functools import wraps as _wraps
-from ..utils import add_docs_line1_to_attribute_history, get_unwrapped
+from ..utils import append_attr
 from tempfile import gettempdir
 
 
@@ -14,6 +14,7 @@ def lon_180W_180E(ds, lon_name='lon'):
     lon180 = (lon - 180) % 360 - 180
     if isclose(lon, lon180).all():
         return ds
+    ds = append_attr(ds, "regridded to [-180 : 180] from [0 : 360]")
     return ds.assign_coords(**{lon_name: lon180}).sortby(lon_name)
 
 
@@ -28,6 +29,7 @@ def lon_0E_360E(ds, lon_name='lon'):
     if isclose(lon, lon360).all():
         return ds
     ds = ds.assign_coords(**{lon_name: lon360}).sortby(lon_name)
+    ds = append_attr(ds, "regridded to [0 : 360] from [-180 : 180]")
     return ds
     
       
@@ -203,6 +205,7 @@ def regrid(ds, weights_path=gettempdir(), res=1, like=None, keep_attrs=True, ver
                 interpolated[k] = interpolated[k].assign_attrs(**ds[k].attrs)
 
     interpolated = interpolated.assign_attrs(regrid_weights=weights_path, **new_attrs)
+    interpolated = append_attr(interpolated, f"regridded with xesmf using {method}")
 
     return interpolated
 
@@ -245,7 +248,98 @@ def interp(ds, res=1, like=None, method='linear', recommendation='warn', **kwarg
         .interpolate_na('lon', limit=int(roll_by / 2))
         .roll(**{'lon': -roll_by}, roll_coords=False))
 
+    interpolated = append_attr(
+        interpolated,
+        f"interpolated to {res}deg resolution using {method} interpolation")
+
     return interpolated
+
+
+def coarsen(ds, res_out=1.):
+    """
+    Coarsen a dataset to a given resolution
+    Will return an error if coarsening is not suitable
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+    res_out: float
+        desired resolution
+
+    Returns
+    -------
+    xr.Dataset
+    """
+
+    from ..utils import append_attr
+    import numpy as np
+    
+    res_in = np.around(float(ds.lat.diff('lat').mean()), 4)
+    res_out = np.around(res_out, 4)
+    ratio = res_out / res_in
+    if abs(ratio - np.round(ratio)) > 0.05:
+        raise ValueError(
+            f"The input resolution ({res_in}) and "
+            f"output resolution ({res_out}) are not "
+            "divisible to an intiger")
+    coarsen_step = np.int32(np.round(ratio))
+    
+    coord_func = lambda x, **kwargs: np.round(np.mean(x, **kwargs), 3)
+    
+    ds = append_attr(ds, f'coarsened resolution from {res_in:.3g}deg to {res_out:.3g}deg')
+    coarse = ds.coarsen(lat=coarsen_step, lon=coarsen_step, coord_func=coord_func)
+    
+    return coarse
+
+
+def _create_time_bnds(time_left):
+    import numpy as np 
+
+    t = time_left.values
+    dt = np.nanmedian(np.diff(t))
+    t = np.concatenate([t, [t[-1] + dt]])
+    
+    time_bnds = xr.DataArray(
+        np.c_[t[:-1], t[1:]],
+        dims=[time_left.name, 'bnds'],
+        coords={time_left.name: time_left},
+        attrs={
+            'description': (
+                'time bands. note that time dimension '
+                'is left aligned to the band')})
+    return time_bnds
+
+
+def resample(ds, func='mean', **kwargs):
+    """
+    Resample time resolution and add a time_bnds coordinate
+
+    Parameters
+    ----------
+    ds: xr.Dataset
+    time_res: str
+        time resolution in the format of '<int>D'
+        where int is the number of days
+    func: str
+        function to apply to the data
+    
+    Returns
+    -------
+    ds: xr.Dataset
+    """
+    from ..utils import append_attr
+    ds_res = ds.resample(**kwargs)
+    ds_out = getattr(ds_res, func)(keep_attrs=True)
+    dim = list(kwargs)[0]
+    res = kwargs[dim]
+    if isinstance(ds, xr.DataArray): 
+        ds_out = append_attr(ds_out, f"resampled {dim} to {res} using `{func}`")
+    elif isinstance(ds, xr.Dataset):
+        ds_out['time_bands'] = _create_time_bnds(ds_out.time)
+        ds_out = ds_out.append_attrs(
+            history=f"resampled {dim} to {res} using `{func}` and added time_bands"
+        )
+    return ds_out
 
 
 def _is_interp_best(iy, ix, oy, ox, recommendation='warn'):

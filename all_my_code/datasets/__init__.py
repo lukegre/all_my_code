@@ -103,6 +103,11 @@ class _amc_Data:
         return func(resolution=self.res, save_dir=self.download_dest)
 
     @_cached_property
+    def seamask(self):
+        from . masks import seamask as func
+        return func(resolution=self.res, save_dir=self.download_dest)
+
+    @_cached_property
     def topography(self):
         from . masks import topography as func
         return func(resolution=self.res, save_dir=self.download_dest)

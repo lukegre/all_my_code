@@ -168,7 +168,7 @@ class Mapping(object):
         from numpy import ndim
         from cartopy import crs
         
-        da = self._obj
+        da = self._obj.astype(float)
         da = da.squeeze()
         if ndim(da) != 2:
             raise ValueError('Can only plot 2D arrays with maps')

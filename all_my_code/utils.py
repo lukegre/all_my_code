@@ -1,4 +1,7 @@
 from pkg_resources import DistributionNotFound, get_distribution
+from xarray import (
+    register_dataset_accessor as _register_dataset, 
+    register_dataarray_accessor as _register_dataarray)
 try:
     __version__ = get_distribution("all_my_code").version
 except DistributionNotFound:
@@ -78,7 +81,7 @@ class add_docs_line1_to_attribute_history(object):
                 return out
             # in all other situations we add history
             else:
-                return self._add_history(out, args[0], kwargs)
+                return append_attr(out, self.msg, old=args[0])
             return out
         except Exception as e:
             raise e
@@ -86,30 +89,15 @@ class add_docs_line1_to_attribute_history(object):
     def __caller__(self, ds):
         return self._add_history(self.func(ds, *self.args[1:], **self.kwargs))
 
-    def _add_history(self, new, old, kwargs, key='history'):
-        from pandas import Timestamp
-
-        version = f".{__version__}" if __version__ else ""
-        version = version.split('+')[0]
-        
-        now = Timestamp.today().strftime("%y%m%d")
-        prefix = f"[all_my_code{version}@{now}] "
-
-        dim = kwargs['dim'] if 'dim' in kwargs else 'time' 
-        msg = prefix + self.msg.format(dim=dim)
-        
-        hist = old.attrs.get(key, '')
-        if hist != '':
-            hist = hist.split(";")
-            hist = [h.strip() for h in hist]
-            msg = "; ".join(hist + [msg])
-            
-        new = new.assign_attrs({key: msg})
-
-        return new
+    def _add_history(self, new, old=None, key='history'):
+        return append_attr(
+            ds=new, 
+            msg=self.msg, 
+            key=key, 
+            old=old)
 
 
-def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
+def make_xarray_accessor(class_name, func_list, accessor_type='dataarray', add_docs_line_to_history=False):
     """
     Turns a list of functions into an xarray accessor.
     
@@ -124,6 +112,9 @@ def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
         the first input of each function must be a dataset/dataarray.
     accessor_type : str
         Type of accessor to be created. Cane be 'dataarray' or 'dataset' or 'both'
+    add_docs_line_to_history : bool
+        If True, the first line of the docstring of each function will be 
+        added to the history attribute.
 
     Returns
     -------
@@ -136,7 +127,8 @@ def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
 
     def wrapped_function(func):
         from functools import wraps
-        func = add_docs_line1_to_attribute_history(func)
+        if add_docs_line_to_history:
+            func = add_docs_line1_to_attribute_history(func)
         og_func = get_unwrapped(func)
         @wraps(og_func)
         def dynamic_function(self, *args, **kwargs):
@@ -163,3 +155,70 @@ def make_xarray_accessor(class_name, func_list, accessor_type='dataarray'):
     elif 'both' in accessor_type:
         register_dataarray_accessor(class_name_snake)(Accessor)
         register_dataset_accessor(class_name_snake)(Accessor)
+
+
+def append_attr(ds, msg, key='history', old=None, func=None):
+    from pandas import Timestamp
+    import inspect
+
+    if func is None:
+        func = inspect.stack()[1][3]
+        func = f": {func}" if func != "__call__" else ""
+    if callable(func):
+        func = func.__name__
+
+    version = f".{__version__}" if __version__ else ""
+    version = version.split('+')[0]
+    
+    now = Timestamp.today().strftime("%Y-%m-%d")
+    msg = f"[all_my_code{version}@{now}{func}] {msg}"
+
+    if old is None:
+        old = ds
+    hist = old.attrs.get(key, '')
+    if hist != '':
+        hist = hist.split(";")
+        hist = [h.strip() for h in hist]
+        msg = "; ".join(hist + [msg])
+        
+    new = ds.assign_attrs({key: msg})
+
+    return new
+
+
+def get_ncfile_if_openable(sname):
+    import os 
+    import xarray as xr
+
+    if sname is None:
+        return None
+    if os.path.isfile(sname):
+        try:
+            out = xr.open_dataset(sname)
+            print('EXISTS:', sname)
+            return out
+        except:
+            pass
+
+
+@_register_dataset('append_attrs')
+@_register_dataarray('append_attrs')
+class AttrAdder(object):
+    def __init__(self, ds):
+        self._obj = ds
+
+    def __call__(self, func=None, **kwargs):
+        import inspect
+        if func is None:
+            func = inspect.stack()[1][3]
+            func = f": {func}" if func != "__call__" else ""
+        if len(kwargs) > 1:
+            key = list(kwargs)[0]
+            msg = kwargs[key]
+            return append_attr(self._obj, msg, key=key, func=func)
+        else:
+            ds = self._obj
+            for key in kwargs:
+                msg = kwargs[key]
+                ds = append_attr(ds, msg, key=key, func=func)
+            return ds

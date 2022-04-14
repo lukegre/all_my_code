@@ -102,6 +102,34 @@ def seafrac(resolution=1/4, save_dir=gettempdir()):
     return make_etopo_mask(res=resolution, save_dir=save_dir).sea_frac
 
 
+def seamask(resolution=1/4, save_dir=gettempdir()):
+    """
+    Returns a mask for ocean pixels where sea fraction > 50%
+
+    Based on the ETOPO1 data scaled to the appropriate resolution
+    Note that this might result in regions that are below the geoid 
+    0 level being marked as ocean - for example, this is the case for 
+    some of the Netherlands.
+
+    Parameters
+    ----------
+    resolution : float
+        Resolution of the output resolution in degrees
+    
+    Returns
+    -------
+    xarray.Dataset
+        a boolean mask of where sea fraction > 50% 
+    """
+    from xarray import set_options
+
+    seafraction = seafrac(resolution=resolution, save_dir=save_dir)
+    with set_options(keep_attrs=True):
+        seamask = (seafraction > 0.5).assign_attrs(
+            description='sea mask where sea fraction > 50%')
+    return seamask
+
+
 def topography(resolution=1/4, save_dir=gettempdir()):
     """
     Get ETOPO1 topography data resampled to the desired resolution
