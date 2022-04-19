@@ -39,7 +39,9 @@ class _amc_Data:
                 string += f"\n{loaded: >4} {func} {dims}"
             return string
         
-        string = f"<all_my_code.data(resolution={self.res}, southern_annular_mode_freq='{self.sam_freq}')>"
+        string = f"<all_my_code.data(resolution={self.res}, "
+        string += f"southern_annular_mode_freq='{self.sam_freq}', "
+        string += f"download_dest='{self.download_dest}')>"
         string += "\nContains the following datasets (* = cached in memory):"
 
         funcnames = [m for m in dir(self) if not m.startswith('_')]
@@ -53,12 +55,14 @@ class _amc_Data:
         string += make_pretty_dataset_repr(regions)
         string += "\n  CLIMATE INDICES"
         string += make_pretty_dataset_repr(indices)
-        string += "\n  CARBON DATASETS"
+        string += f"\n  CARBON DATASETS [{self.download_dest}]"
         string += make_pretty_dataset_repr(co2data)
+        string += f"\n  Default CARBON download path can be set with `amc.data.download_dest = <new_path>`"
+        string += f"\n  Note that all CARBON data will have to be downloaded at least once"
 
         return string
 
-    def set_defaults(self, resolution=None, southern_annular_mode_freq=None):
+    def set_defaults(self, resolution=None, southern_annular_mode_freq=None, download_dest=None):
         if southern_annular_mode_freq is not None:
             self.sam_freq = southern_annular_mode_freq
             self.__dict__.pop('southern_annular_mode', None)
@@ -66,6 +70,8 @@ class _amc_Data:
             self.res = resolution
             for key in ['seafrac', 'topography', 'fay_any_mckinley_2014_biomes', 'reccap2_regions']:
                 self.__dict__.pop(key, None)
+        if download_dest is not None:
+            self.download_dest = download_dest
 
     @_cached_property
     def mauna_loa_xco2(self):
