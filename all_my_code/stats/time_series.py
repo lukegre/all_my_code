@@ -1,9 +1,9 @@
 from os import access
-from ..utils import make_xarray_accessor as _make_xarray_accessor
 import xarray as xr
 import numpy as np
 import joblib
 from functools import wraps as _wraps
+from ..utils import make_xarray_accessor as _make_xarray_accessor
 
 
 def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
@@ -54,7 +54,8 @@ def slope(da, dim='time'):
         .polyfit_coefficients[0]
         .drop('degree')
         .assign_attrs(units=f'units/{dim}_step'))
-    
+    slope = slope.append_attrs(history=f'Calculated linear slope along the `{dim}` dimension')
+
     return slope
 
 
@@ -78,6 +79,9 @@ def climatology(da, tile=False, groupby_dim='time.month'):
     if tile:
         times = getattr(da[dim0].dt, dim1)
         clim = clim.sel(**{dim1: times}).drop(dim1)
+
+    clim = clim.append_attrs(
+        history=f'Calculated the `{dim1}` climatology along the `{dim0}` dimension')
 
     return clim
 
@@ -105,6 +109,9 @@ def deseasonalise(da, groupby_dim='time.month'):
     seasonal_cycle -= seasonal_cycle.mean(dim1)
     deseasonalised = grp - seasonal_cycle
     deseasonalised = deseasonalised.assign_attrs(units=da.attrs.get('units', ''))
+
+    deseasonalised = deseasonalised.append_attrs(
+        history=f'Removed the `{dim1}` climatology along the `{dim0}` dimension')
 
     return deseasonalised
 
@@ -146,6 +153,9 @@ def trend(da, dim='time', deg=1, coef=None):
     name = name + '_' if name is not None else ''
     trend.name = name + 'predicted_trend'
 
+    trend = trend.append_attrs(
+        history=f'Calculated the {deg}-order trend along the `{dim}` dimension')
+
     return trend
 
 
@@ -169,6 +179,8 @@ def detrend(da, dim='time', deg=1, coef=None):
     """
 
     da_detrend = da - trend(da, dim=dim, deg=deg, coef=coef)
+    da_detrend = da_detrend.append_attrs(
+        history=f'Removed the {deg}-order trend along the `{dim}` dimension')
 
     return da_detrend
 
@@ -268,6 +280,8 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
         rename_dict = {k: f"{name}_{k}" for k in fit}
         fit = fit.rename(rename_dict)
 
+    fit = fit.append_attrs(history="Full linear regression with all stats (coefs, r2, pvalue, rmse, +)")
+
     return fit
 
 
@@ -305,10 +319,13 @@ def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_
     slope = da.resample(**{dim: '1AS'}).mean().time_series.slope(dim=dim)
         
     toe = (noise / abs(slope)).assign_attrs(
-        description='time of emergence in years',
+        description=(
+            'time of emergence in years (based on standard deviation) '
+        ),
         long_name=f'{name}time_of_emergence',
         units='years'
     )
+    toe = toe.append_attrs(history="Time of Emergence calculated using standard deviation")
     
     return toe
         
