@@ -232,11 +232,24 @@ def esper_liar(sal=None, temp=None, nitrate=None, oxygen=None, silicate=None, de
     from numpy import array
 
     def get_liar3_data_as_xarray(eq_case):
+        """
+        Get the data from the remote LIAR3 database
+
+        Parameters
+        ----------
+        eq_case : str
+            Loads the equation case from the LIAR3 database
+
+        Returns
+        -------
+        xr.DataArray
+            Coefficients for the equation case
+        """
         from numpy import c_ as concat
         from scipy.io import loadmat
 
         url = "https://github.com/BRCScienceProducts/ESPER/raw/main/ESPER_LIR_Files/LIR_files_TA_v3.mat"  # noqa
-        fname = download_file(url, path="/Users/luke/Data/cached/")
+        fname = download_file(url, path="~/Data/cached/")
 
         lirs = loadmat(fname)
 
