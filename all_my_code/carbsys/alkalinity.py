@@ -198,3 +198,131 @@ def calc_lee2006(lat, lon, temp, salt, return_regions=False):
         yhat[i] = (X[i] * coeffs[r]).sum(1)
 
     return yhat
+
+
+def esper_liar(sal=None, temp=None, nitrate=None, oxygen=None, silicate=None, depth=0):
+    """
+    Calculates total alkalinity using locally interpolated linear regressions
+
+    Parameters
+    ----------
+    sal : xr.DataArray
+        salinity
+    temp : xr.DataArray
+        temperature
+    nitrate : xr.DataArray
+        nitrate concentration
+    oxygen : xr.DataArray
+        oxygen concentration
+    silicate : xr.DataArray
+        silicate concentration
+    depth : float
+        depth at which the alkalinity is calculated - only single
+        depth is supported at the moment
+
+    Returns
+    -------
+    alkalinity : xr.DataArray
+        total alkalinity
+    """
+    import pandas as pd
+    from ..files.download import download_file
+    from ..datasets.masks import reccap2_regions as get_reccap2_regions
+    from xarray import Dataset, concat
+    from numpy import array
+
+    def get_liar3_data_as_xarray(eq_case):
+        from numpy import c_ as concat
+        from scipy.io import loadmat
+
+        url = "https://github.com/BRCScienceProducts/ESPER/raw/main/ESPER_LIR_Files/LIR_files_TA_v3.mat"  # noqa
+        fname = download_file(url, path="/Users/luke/Data/cached/")
+
+        lirs = loadmat(fname)
+
+        grid = lirs["GridCoords"][:, :3]
+        coefs = lirs["Cs"][:, :, eq_case - 1]
+
+        data = concat[grid, coefs]
+        names = [
+            "lon",
+            "lat",
+            "depth",
+            "0",
+            "sal",
+            "temp",
+            "nitrate",
+            "oxygen",
+            "silicate",
+        ]
+        df = pd.DataFrame(data, columns=names).set_index(["lon", "lat", "depth"])
+        coefs = df.to_xarray().conform.transpose_dims().to_array(name="liar3_coefs")
+
+        return coefs
+
+    if sal is None:
+        raise ValueError("salinity is required")
+
+    names = array(["sal", "temp", "nitrate", "oxygen", "silicate"])
+    vars = array([sal, temp, nitrate, oxygen, silicate], dtype="O")
+    avail = array([v is not None for v in vars])
+
+    assert [
+        sal.shape == v.shape for v in vars[avail]
+    ], "All given inputs must be the same size"
+
+    cases = pd.DataFrame(
+        {
+            1: [1, 1, 1, 1, 1],
+            2: [1, 1, 1, 0, 1],
+            3: [1, 1, 0, 1, 1],
+            4: [1, 1, 0, 0, 1],
+            5: [1, 1, 1, 1, 0],
+            6: [1, 1, 1, 0, 0],
+            7: [1, 1, 0, 1, 0],
+            8: [1, 1, 0, 0, 0],
+            9: [1, 0, 1, 1, 1],
+            10: [1, 0, 1, 0, 1],
+            11: [1, 0, 0, 1, 1],
+            12: [1, 0, 0, 0, 1],
+            13: [1, 0, 1, 1, 0],
+            14: [1, 0, 1, 0, 0],
+            15: [1, 0, 0, 1, 0],
+            16: [1, 0, 0, 0, 0],
+        }
+    ).T
+
+    eq = (cases == avail).all(axis=1).where(lambda x: x).dropna().index.values
+    assert (
+        len(eq) == 1
+    ), "there must only be one unique equation - something wrong with cases"
+    eq = eq[0]
+
+    x = vars[avail].tolist() + [sal * 0 + 1]
+    x_names = names[avail].tolist() + ["0"]
+    preds = concat(x, dim="variable").assign_coords(variable=x_names)
+
+    coarse = Dataset()
+    coarse["coefs"] = get_liar3_data_as_xarray(eq).sel(depth=depth, method="nearest")
+    coarse["mask"] = coarse.coefs.notnull().any("variable")
+
+    reccap2 = get_reccap2_regions(resolution=1)
+    fine_mask = reccap2.open_ocean > 0
+
+    coefs = coarse.grid.regrid(mask=fine_mask).coefs
+
+    est = (
+        (coefs * preds)
+        .sum("variable")
+        .where(lambda x: x > 10)  # set a basic constraint
+        .conform.transpose_dims()  # making sure dataset is in the right shape
+        .assign_attrs(
+            source="https://github.com/BRCScienceProducts/ESPER",
+            reference="https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2020GB006623",
+            description=(
+                "Total alkalinity estimated from the " "esper_lir equation #{} using {}"
+            ).format(eq, names[avail]),
+        )
+    )
+
+    return est
