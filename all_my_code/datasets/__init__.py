@@ -1,6 +1,6 @@
 from functools import cached_property as _cached_property, wraps as _wraps
 
-from . import climate_indicies, masks, carbon
+from . import climate_indicies, masks, carbon, other
 
 
 class _amc_Data:
@@ -167,6 +167,14 @@ class _amc_Data:
     @_wraps(carbon.seaflux)
     def seaflux(self, *args, **kwargs):
         from .carbon import seaflux as func
+
+        props = dict(save_dir=self.download_dest)
+        props.update(kwargs)
+        return func(*args, **props)
+
+    @_wraps(other.get_woa18)
+    def woa18(self, *args, **kwargs):
+        from .other import get_woa18 as func
 
         props = dict(save_dir=self.download_dest)
         props.update(kwargs)
