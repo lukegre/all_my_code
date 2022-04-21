@@ -24,28 +24,31 @@ def fay_any_mckinley_2014_biomes(resolution=1):
     )
 
     names = (
-        DataFrame({
-            1: ["North Pacific Ice", "NP_ICE"],
-            2: ["North Pacific Subpolar Seasonally Stratified", "NP_SPSS"],
-            3: ["North Pacific Subtropical Seasonally Stratified ", "NP_STSS"],
-            4: ["North Pacific Subtropical Permanently Stratified", "NP_STPS"],
-            5: ["West pacific Equatorial", "PEQU_W"],
-            6: ["East Pacific Equatorial", "PEQU_E"],
-            7: ["South Pacific Subtropical Permanently Stratified", "SP_STPS"],
-            8: ["North Atlantic Ice", "NA_ICE"],
-            9: ["North Atlantic Subpolar Seasonally Stratified", "NA_SPSS"],
-            10: ["North Atlantic Subtropical Seasonally Stratified", "NA_STSS"],
-            11: ["North Atlantic Subtropical Permanently Stratified", "NA_STPS"],
-            12: ["Atlantic Equatorial", "AEQU"],
-            13: ["South Atlantic Subtropical Permanently Stratified", "SA_STPS"],
-            14: ["Indian Ocean Subtropical Permanently Stratified", "IND_STPS"],
-            15: ["Southern Ocean Subtropical Seasonally Stratified", "SO_STSS"],
-            16: ["Southern Ocean Subpolar Seasonally Stratified", "SO_SPSS"],
-            17: ["Southern Ocean Ice", "SO_ICE"],})
+        DataFrame(
+            {
+                1: ["North Pacific Ice", "NP_ICE"],
+                2: ["North Pacific Subpolar Seasonally Stratified", "NP_SPSS"],
+                3: ["North Pacific Subtropical Seasonally Stratified ", "NP_STSS"],
+                4: ["North Pacific Subtropical Permanently Stratified", "NP_STPS"],
+                5: ["West pacific Equatorial", "PEQU_W"],
+                6: ["East Pacific Equatorial", "PEQU_E"],
+                7: ["South Pacific Subtropical Permanently Stratified", "SP_STPS"],
+                8: ["North Atlantic Ice", "NA_ICE"],
+                9: ["North Atlantic Subpolar Seasonally Stratified", "NA_SPSS"],
+                10: ["North Atlantic Subtropical Seasonally Stratified", "NA_STSS"],
+                11: ["North Atlantic Subtropical Permanently Stratified", "NA_STPS"],
+                12: ["Atlantic Equatorial", "AEQU"],
+                13: ["South Atlantic Subtropical Permanently Stratified", "SA_STPS"],
+                14: ["Indian Ocean Subtropical Permanently Stratified", "IND_STPS"],
+                15: ["Southern Ocean Subtropical Seasonally Stratified", "SO_STSS"],
+                16: ["Southern Ocean Subpolar Seasonally Stratified", "SO_SPSS"],
+                17: ["Southern Ocean Ice", "SO_ICE"],
+            }
+        )
         .transpose()
-        .rename(columns={0:'biome_name', 1:'biome_abbrev'})
+        .rename(columns={0: "biome_name", 1: "biome_abbrev"})
         .to_xarray()
-        .rename(index='biome_number')
+        .rename(index="biome_number")
     )
 
     ds = merge([fm14, names]).fillna(0)
@@ -54,38 +57,38 @@ def fay_any_mckinley_2014_biomes(resolution=1):
         if da.dtype == np.float_:
             da = da.astype(np.int8)
             ds[key] = da
-    
+
     if resolution == 1:
         return ds
     else:
         like = _make_like_array(resolution)
-        ds = ds.reindex_like(like, method='nearest')
+        ds = ds.reindex_like(like, method="nearest")
         return ds
 
 
 def reccap2_regions(resolution=1):
     import xarray as xr
     import fsspec
-    
+
     url = (
         "https://github.com/RECCAP2-ocean/R2-shared-resources/raw"
-        "/master/data/regions/RECCAP2_region_masks_all_v20210412.nc")
+        "/master/data/regions/RECCAP2_region_masks_all_v20210412.nc"
+    )
     ds = xr.open_dataset(fsspec.open(url).open())
 
     ds = ds.conform(
-        correct_coord_names=False, 
-        drop_0d_coords=False, 
-        transpose_dims=False)
+        correct_coord_names=False, drop_0d_coords=False, transpose_dims=False
+    )
 
     if resolution == 1:
         return ds
     else:
         like = _make_like_array(resolution)
-        ds = ds.reindex_like(like, method='nearest')
+        ds = ds.reindex_like(like, method="nearest")
         return ds
 
 
-def seafrac(resolution=1/4, save_dir=gettempdir()):
+def seafrac(resolution=1 / 4, save_dir=gettempdir()):
     """
     Returns a mask that shows the fraction of ocean based on ETOPO1 data
 
@@ -93,7 +96,7 @@ def seafrac(resolution=1/4, save_dir=gettempdir()):
     ----------
     resolution : float
         Resolution of the output resolution in degrees
-    
+
     Returns
     -------
     xarray.Dataset
@@ -102,35 +105,74 @@ def seafrac(resolution=1/4, save_dir=gettempdir()):
     return make_etopo_mask(res=resolution, save_dir=save_dir).sea_frac
 
 
-def seamask(resolution=1/4, save_dir=gettempdir()):
+def seamask(resolution=1 / 4, save_dir=gettempdir()):
     """
     Returns a mask for ocean pixels where sea fraction > 50%
 
     Based on the ETOPO1 data scaled to the appropriate resolution
-    Note that this might result in regions that are below the geoid 
-    0 level being marked as ocean - for example, this is the case for 
+    Note that this might result in regions that are below the geoid
+    0 level being marked as ocean - for example, this is the case for
     some of the Netherlands.
 
     Parameters
     ----------
     resolution : float
         Resolution of the output resolution in degrees
-    
+
     Returns
     -------
     xarray.Dataset
-        a boolean mask of where sea fraction > 50% 
+        a boolean mask of where sea fraction > 50%
     """
     from xarray import set_options
 
     seafraction = seafrac(resolution=resolution, save_dir=save_dir)
     with set_options(keep_attrs=True):
         seamask = (seafraction > 0.5).assign_attrs(
-            description='sea mask where sea fraction > 50%')
+            description="sea mask where sea fraction > 50%"
+        )
     return seamask
 
 
-def topography(resolution=1/4, save_dir=gettempdir()):
+def ar6_regions(resolution=1 / 4, subset="all"):
+    """
+    Fetches AR6 regions using the regionmask package
+
+    Parameters
+    ----------
+    resolution : float
+        Resolution of the output resolution in degrees
+    subset : str ['all', 'land', 'ocean']
+        Subset of the AR6 regions to return.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing the AR6 regions with two variables:
+            - 'region' : the region number
+            - 'names' : the name of the region
+    """
+    from all_my_code.munging.grid import _make_like_array
+    import regionmask
+    from xarray import DataArray
+
+    ar6 = regionmask.defined_regions.ar6
+    regions = getattr(ar6, subset)
+
+    like = _make_like_array(resolution)
+
+    mask = regions.mask(like.lon, like.lat).astype("int8").to_dataset(name="region")
+
+    mask["names"] = DataArray(
+        regions.names,
+        dims=("number",),
+        coords={"number": regions.numbers},
+        attrs={"source": "Python package <regionmask>"},
+    )
+    return mask
+
+
+def topography(resolution=1 / 4, save_dir=gettempdir()):
     """
     Get ETOPO1 topography data resampled to the desired resolution
 
@@ -138,7 +180,7 @@ def topography(resolution=1/4, save_dir=gettempdir()):
     ----------
     resolution : float
         Resolution of the output resolution in degrees
-    
+
     Returns
     -------
     xarray.Dataset
@@ -148,27 +190,30 @@ def topography(resolution=1/4, save_dir=gettempdir()):
     return make_etopo_mask(res=resolution, save_dir=save_dir).topo_avg
 
 
-def make_etopo_mask(res=1/4, save_dir=gettempdir(), delete_intermediate_files=True):
+def make_etopo_mask(res=1 / 4, save_dir=gettempdir(), delete_intermediate_files=True):
     """
     Downloads ETOPO1 data and creates a new file containing
     - average height
     - standard deviation of height (from pixels in original file)
-    - fraction of ocean 
+    - fraction of ocean
     """
     import xarray as xr
 
-    ds = _fetch_etopo(save_dir=save_dir, delete_intermediate_files=delete_intermediate_files)
+    ds = _fetch_etopo(
+        save_dir=save_dir, delete_intermediate_files=delete_intermediate_files
+    )
 
     # the coarsening step is determined by 60min / res to get to degrees
     d = int(60 * res)
     out = xr.Dataset()
     coarse = ds.z.coarsen(lat=d, lon=d)
-    out['topo_avg'] = coarse.mean(keep_attrs=True)
-    out['topo_std'] = coarse.std(keep_attrs=True)
-    out['sea_frac'] = (ds.z < 0).coarsen(lat=d, lon=d).sum() / d**2
+    out["topo_avg"] = coarse.mean(keep_attrs=True)
+    out["topo_std"] = coarse.std(keep_attrs=True)
+    out["sea_frac"] = (ds.z < 0).coarsen(lat=d, lon=d).sum() / d**2
     out = out.assign_attrs(
         **ds.attrs,
-        description="Topography data from ETOPO1 resampled to the given resolution.")
+        description="Topography data from ETOPO1 resampled to the given resolution.",
+    )
 
     return out
 
@@ -177,12 +222,12 @@ def _fetch_etopo(save_dir=gettempdir(), delete_intermediate_files=True):
     """
     Fetch ETOPO1 data and return it as an xarray.Dataset
 
-    The ETOPO1 data will be downloaded if it does not exist. 
-    
+    The ETOPO1 data will be downloaded if it does not exist.
+
     Parameters
     ----------
     save_dir : str
-        Path to the directory where the data should be stored. Default 
+        Path to the directory where the data should be stored. Default
         is the system's temporary directory.
     delete_intermediate_files : bool [False]
         If True, delete the intermediate files after the data is downloaded
@@ -190,30 +235,35 @@ def _fetch_etopo(save_dir=gettempdir(), delete_intermediate_files=True):
     Returns
     -------
     xarray.Dataset
-        Dataset containing the ETOPO1 data that has been conformed 
+        Dataset containing the ETOPO1 data that has been conformed
     """
     import xarray as xr
     from ..files.download import download_file
     from pathlib import Path as posixpath
     import os
-    
+
     url = (
         "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data"
-        "/ice_surface/cell_registered/netcdf/ETOPO1_Ice_c_gmt4.grd.gz")
-    
-    fname = os.path.join(os.path.expanduser(save_dir), posixpath(url).name).replace('grd.gz', 'nc')
+        "/ice_surface/cell_registered/netcdf/ETOPO1_Ice_c_gmt4.grd.gz"
+    )
+
+    fname = os.path.join(os.path.expanduser(save_dir), posixpath(url).name).replace(
+        "grd.gz", "nc"
+    )
     if not os.path.isfile(fname):
         print(
-            'Downloading ETOPO1 data - this is only done once (unless you delete the '
-            f'tmp directory). The final file will be saved at {fname} '
-            'and has a size of roughly 250MB. All other intermediate files will be deleted.'
+            "Downloading ETOPO1 data - this is only done once (unless you delete the "
+            f"tmp directory). The final file will be saved at {fname} and "
+            "has a size of roughly 250MB. All other intermediate files will be deleted."
         )
         tmp_fname = download_file(url, path=save_dir)
         tmp_data = xr.open_dataset(tmp_fname).assign_attrs(source=url, dest=fname)
-        tmp_data.astype('int16').to_netcdf(fname, encoding={'z': {'complevel': 1, 'zlib': True}})
+        tmp_data.astype("int16").to_netcdf(
+            fname, encoding={"z": {"complevel": 1, "zlib": True}}
+        )
         if delete_intermediate_files:
             os.remove(tmp_fname)
-    
+
     # load with mfdataset to ensure that we're chunking the data
     # then we conform the data so that x, y are renamed to lat, lon
     ds = xr.open_mfdataset([fname]).conform()
