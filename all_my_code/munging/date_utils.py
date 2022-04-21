@@ -1,11 +1,11 @@
 def datetime64ns_to_lower_order_datetime(arr):
     """
     If monthly data is saved as datetime64[ns], will return datetime64[M]
-    
+
     This is useful if you want to calculate the diff in the appropriate
     units
     """
-    
+
     from pandas import Series
     from numpy import array, isnat, diff, NaN, nanmedian
 
@@ -51,52 +51,52 @@ def decimal_year_to_datetime(decimal_year):
     """
     from collections.abc import Iterable
     from pandas import DatetimeIndex, to_datetime
-    
+
     if isinstance(decimal_year, Iterable):
         return DatetimeIndex([decimal_year_to_datetime(y) for y in decimal_year])
-    
+
     from calendar import isleap
-    import pandas as pd
+
     def get_int_and_frac(number, frac_scaler=1):
         intiger = int(number)
         fraction = number - intiger
         fraction *= frac_scaler
         return intiger, fraction
-    
+
     # convert a decimal year to a pandas timestamp
-    year, ddays = get_int_and_frac(decimal_year, 366 if isleap(int(decimal_year)) else 365)
+    year, ddays = get_int_and_frac(
+        decimal_year, 366 if isleap(int(decimal_year)) else 365
+    )
     ddays += 1
     days, dhours = get_int_and_frac(ddays, 24)
     hour, dmins = get_int_and_frac(dhours, 60)
     mins, dsecs = get_int_and_frac(dmins, 60)
     secs, ms = get_int_and_frac(dsecs)
     timestamp = to_datetime(
-        f"{year:d}-{days:d} {hour:d}:{mins:d}:{secs:d}", 
-        format="%Y-%j %H:%M:%S")
+        f"{year:d}-{days:d} {hour:d}:{mins:d}:{secs:d}", format="%Y-%j %H:%M:%S"
+    )
 
     return timestamp
 
 
 def datestring_to_datetime(string, return_date=False):
     """
-    Will try to convert a datestring into a datetime if it 
-    matches conventional date formats. Supports years 
+    Will try to convert a datestring into a datetime if it
+    matches conventional date formats. Supports years
     1870 to 2129. May confuse American (mm-dd-yyyy) format
-    if the day < 12. 
+    if the day < 12.
     """
     import re
-    from . date_utils import convert_datestring_to_datetime
     from pandas import to_datetime
-    
-    if isinstance(string, list):
-        return [convert_datestring_to_datetime(s) for s in string]
-            
 
-    year = '(?P<year>[12][0189][012789][0-9])'
-    mon  = '(?P<mon>[01][0-9])'
-    day  = '(?P<day>[0-3][0-9])'
-    sep  = '(?P<sep>.?)'
-    
+    if isinstance(string, list):
+        return [datestring_to_datetime(s) for s in string]
+
+    year = "(?P<year>[12][0189][012789][0-9])"
+    mon = "(?P<mon>[01][0-9])"
+    day = "(?P<day>[0-3][0-9])"
+    sep = "(?P<sep>.?)"
+
     patterns = [
         "{year}",
         "{year}{sep}{mon}",
@@ -114,17 +114,17 @@ def datestring_to_datetime(string, return_date=False):
             continue
         groups = matches.groupdict()
         if len(groups) > 0:
-            s = '' if 'sep' not in groups else groups['sep']
+            s = "" if "sep" not in groups else groups["sep"]
             best_pattern = pattern.format(
-                year='%Y', 
-                mon='%m',
-                day='%d',
+                year="%Y",
+                mon="%m",
+                day="%d",
                 sep=s,
-            ).replace('.?', s)
+            ).replace(".?", s)
             out += 1
-            
+
     try:
         date = to_datetime(string, format=best_pattern)
         return date.to_numpy()
-    except ValueError as e:
+    except ValueError:
         return string
