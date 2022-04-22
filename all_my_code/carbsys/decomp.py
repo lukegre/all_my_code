@@ -186,10 +186,9 @@ def decompose_carbsys(
     assert check_dims_in_da(driver_change), msg.format("driver_change")
 
     t = variable.time
-    assert (
-        t.size == sensitivity.time.size
-    ), "time must be the same for variable and sensitivity"
-    assert t.size == scaling.time.size, "time must be the same for variable and scaling"
+    compare_times = lambda x: t.size == x.time.size
+    assert compare_times(sensitivity), "time must be same for variable and sensitivity"
+    assert compare_times(scaling), "time must be the same for variable and scaling"
     assert isclose(
         t.size, driver_change.time.size, rtol=0.2
     ), "time must be similar for variable and driver_change"
