@@ -187,19 +187,18 @@ def decompose_carbsys(
 
     t = variable.time
     compare_times = lambda x: t.size == x.time.size
-    assert compare_times(sensitivity), "time must be same for variable and sensitivity"
-    assert compare_times(scaling), "time must be the same for variable and scaling"
+    msg = f"{{}} and variable must have the same '{time_dim}' dimension"
+    make_msg = lambda f: msg.format(f)
+    assert compare_times(sensitivity), make_msg("sensitivity")
+    assert compare_times(scaling), make_msg("scaling")
     assert isclose(
         t.size, driver_change.time.size, rtol=0.2
-    ), "time must be similar for variable and driver_change"
+    ), f"'{time_dim}' must be similar for variable and driver_change"
 
-    assert all(
-        t == sensitivity.time
-    ), "time must be the same for variable and sensitivity"
-    assert all(t == scaling.time), "time must be the same for variable and scaling"
-    assert all(
-        t == driver_change.time
-    ), "time must be the same for variable and driver_change"
+    compare_times = lambda x: all(t == x.time)
+    assert compare_times(sensitivity), make_msg("sensitivity")
+    assert compare_times(scaling), make_msg("scaling")
+    assert compare_times(driver_change), make_msg("driver_change")
 
     variable = variable.broadcast_like(sensitivity)
     scaling = scaling.where(lambda x: x.driver != "temp").fillna(1)
