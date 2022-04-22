@@ -75,7 +75,7 @@ def fit_seasonal_cycle_wnt_smr(da):
     return da.groupby("time.month").mean()
 
 
-def fit_rolling_seasonal_cycle(da, window=36, func=fit_seasonal_cycle_wnt_smr):
+def fit_rolling_seasonal_cycle(da, window=36, func="wnt_smr"):
     """
     Fits a seasonal cycle to data using cos and sin functions.
 
@@ -98,9 +98,23 @@ def fit_rolling_seasonal_cycle(da, window=36, func=fit_seasonal_cycle_wnt_smr):
     assert window % 12 == 0, "window must be a multiple of 12 (months)"
     assert "time" in da.dims, "da must have a time dimension"
 
+    if func == "wnt_smr":
+        func = fit_seasonal_cycle_wnt_smr
+    elif func == "graven2013":
+        func = fit_seasonal_cycle_graven2013
+    elif callable(func):
+        pass
+    else:
+        raise ValueError("func must be 'wnt_smr' or 'graven2013'")
+
     da = da.conform.time_center_monthly(center_day=1)
-    w = window
-    years = w / 12
+
+    dims = list(da.dims)
+    dims.remove("time")
+    dims.insert(0, "time")
+    da = da.transpose(*dims)
+
+    years = window / 12
     freq = f"{int(years)}AS"
     offset = int(years / 2)
 
@@ -108,7 +122,7 @@ def fit_rolling_seasonal_cycle(da, window=36, func=fit_seasonal_cycle_wnt_smr):
         da.isel(time=slice(i, None))
         .resample(time=freq, label="left", loffset=f"{offset}AS")
         .apply(func)
-        for i in range(0, w, 12)
+        for i in range(0, window, 12)
     ]
 
     dims = list(da.dims)
