@@ -97,8 +97,6 @@ def fit_rolling_seasonal_cycle(da, window=36, func=fit_seasonal_cycle_wnt_smr):
     assert isinstance(da, xr.DataArray), "da must be an xarray DataArray"
     assert window % 12 == 0, "window must be a multiple of 12 (months)"
     assert "time" in da.dims, "da must have a time dimension"
-    assert "lon" in da.dims, "da must have a lon dimension"
-    assert "lat" in da.dims, "da must have a lat dimension"
 
     da = da.conform.time_center_monthly(center_day=1)
     w = window
