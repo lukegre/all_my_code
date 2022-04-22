@@ -175,6 +175,7 @@ def decompose_carbsys(
         mechanisms are: sensitivity, driver_change, variable_change
     """
     from ..stats.time_series import slope
+    from numpy import isclose
 
     drivers = ["dic", "alk", "temp", "sal"]
     check_dims_in_da = lambda x: all([d in x.driver for d in drivers])
@@ -183,6 +184,23 @@ def decompose_carbsys(
     assert check_dims_in_da(sensitivity), msg.format("sensitivity")
     assert check_dims_in_da(scaling), msg.format("scaling")
     assert check_dims_in_da(driver_change), msg.format("driver_change")
+
+    t = variable.time
+    assert (
+        t.size == sensitivity.time.size
+    ), "time must be the same for variable and sensitivity"
+    assert t.size == scaling.time.size, "time must be the same for variable and scaling"
+    assert isclose(
+        t.size, driver_change.time.size, rtol=0.2
+    ), "time must be similar for variable and driver_change"
+
+    assert all(
+        t == sensitivity.time
+    ), "time must be the same for variable and sensitivity"
+    assert all(t == scaling.time), "time must be the same for variable and scaling"
+    assert all(
+        t == driver_change.time
+    ), "time must be the same for variable and driver_change"
 
     variable = variable.broadcast_like(sensitivity)
     scaling = scaling.where(lambda x: x.driver != "temp").fillna(1)
