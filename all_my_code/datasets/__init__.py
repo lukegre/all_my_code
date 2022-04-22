@@ -77,6 +77,7 @@ class _amc_Data:
                 "topography",
                 "fay_any_mckinley_2014_biomes",
                 "reccap2_regions",
+                "ar6_regions",
             ]:
                 self.__dict__.pop(key, None)
         if download_dest is not None:
