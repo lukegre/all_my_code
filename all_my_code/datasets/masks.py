@@ -88,7 +88,7 @@ def reccap2_regions(resolution=1):
         return ds
 
 
-def seafrac(resolution=1 / 4, save_dir=gettempdir()):
+def seafrac(resolution=1, save_dir=gettempdir()):
     """
     Returns a mask that shows the fraction of ocean based on ETOPO1 data
 
@@ -105,7 +105,7 @@ def seafrac(resolution=1 / 4, save_dir=gettempdir()):
     return make_etopo_mask(res=resolution, save_dir=save_dir).sea_frac
 
 
-def seamask(resolution=1 / 4, save_dir=gettempdir()):
+def seamask(resolution=1, save_dir=gettempdir()):
     """
     Returns a mask for ocean pixels where sea fraction > 50%
 
@@ -134,7 +134,7 @@ def seamask(resolution=1 / 4, save_dir=gettempdir()):
     return seamask
 
 
-def ar6_regions(resolution=1 / 4, subset="all"):
+def ar6_regions(resolution=1, subset="all"):
     """
     Fetches AR6 regions using the regionmask package
 
@@ -172,7 +172,7 @@ def ar6_regions(resolution=1 / 4, subset="all"):
     return mask
 
 
-def topography(resolution=1 / 4, save_dir=gettempdir()):
+def topography(resolution=1, save_dir=gettempdir()):
     """
     Get ETOPO1 topography data resampled to the desired resolution
 
@@ -190,7 +190,7 @@ def topography(resolution=1 / 4, save_dir=gettempdir()):
     return make_etopo_mask(res=resolution, save_dir=save_dir).topo_avg
 
 
-def make_etopo_mask(res=1 / 4, save_dir=gettempdir(), delete_intermediate_files=True):
+def make_etopo_mask(res=1, save_dir=gettempdir(), delete_intermediate_files=True):
     """
     Downloads ETOPO1 data and creates a new file containing
     - average height
@@ -268,3 +268,106 @@ def _fetch_etopo(save_dir=gettempdir(), delete_intermediate_files=True):
     # then we conform the data so that x, y are renamed to lat, lon
     ds = xr.open_mfdataset([fname]).conform()
     return ds
+
+
+def hemisphere_sign(resolution=1):
+    """
+    Returns a mask where the NH is -1 and SH is +1
+
+    Parameters
+    ----------
+    resolution : float
+        Resolution of the output resolution in degrees
+
+    Returns
+    -------
+    xarray.DataArray
+        DataArray containing the hemisphere sign
+    """
+    blank = _make_like_array(resolution)
+    hem_flip = blank.fillna(1).where(lambda x: x.lat > 0).fillna(-1)
+    return hem_flip
+
+
+def make_pco2_seasonal_mask(pco2, res=1, eq_lat=10, high_lat=65):
+    """
+    Make a mask for the given pCO2 seasonal cycle.
+
+    Parameters
+    ----------
+    pco2 : xr.DataArray
+        pCO2 seasonal from which the seasonal cycle will be calculated
+        and the mask will be constructed.
+    res : int
+        Resolution of the mask.
+    eq_lat : float
+        Latitude for the Equatorial boundary
+    high_lat : float
+        Latitude for the High latitude boundary
+
+    Returns
+    -------
+    mask : xr.DataArray
+        Boolean mask for the given pCO2 seasonal cycle.
+    """
+    from ..analyse.seasonal_cycle import fit_seasonal_cycle_wnt_smr
+    from xarray import concat
+
+    mask1 = _make_zonal_mask(1, 20, high_lat)
+    mask2 = _make_zonal_mask(1, eq_lat, 50)
+
+    hem_flip = hemisphere_sign(res)
+
+    seascyl = fit_seasonal_cycle_wnt_smr(pco2)
+    jfm = seascyl.sel(month=[12, 1, 2]).mean("month")  # JFM
+    jas = seascyl.sel(month=[6, 7, 8]).mean("month")  # JAS
+    diff = (jfm - jas) * hem_flip
+
+    high_lats = diff.where(mask1) > 0
+    low_lats = mask2 & ~high_lats & diff.notnull()
+
+    nh_hl = high_lats.where(lambda x: (x > 0) & (hem_flip > 0)) * 1
+    nh_ll = low_lats.where(lambda x: (x > 0) & (hem_flip > 0)) * 2
+    sh_ll = low_lats.where(lambda x: (x > 0) & (hem_flip < 0)) * 3
+    sh_hl = high_lats.where(lambda x: (x > 0) & (hem_flip < 0)) * 4
+
+    seas_cycle_mask = concat([nh_hl, nh_ll, sh_ll, sh_hl], "tmp").sum("tmp")
+
+    return seas_cycle_mask
+
+
+def _make_zonal_mask(res, min_lat, max_lat):
+    """
+    Make a mask for the given latitude range.
+
+    The mask will make two bands - one for the northern
+    hemisphere and one for the southern hemisphere.
+
+    Parameters
+    ----------
+    res : int
+        Resolution of the mask.
+    min_lat : float
+        Minimum latitude for the mask (equator)
+    max_lat : float
+        Maximum latitude for the mask (pole)
+
+    Returns
+    -------
+    mask : xr.DataArray
+        Boolean mask for the given latitude range.
+    """
+
+    min_lat = abs(min_lat)
+    max_lat = abs(max_lat)
+
+    blank = _make_like_array(res).fillna(1)
+    y = blank.lat
+
+    mask = blank.where(
+        ((y >= -max_lat) & (y <= -min_lat)) | ((y >= min_lat) & (y <= max_lat))
+    )
+
+    mask = mask.fillna(0).astype(bool)
+
+    return mask

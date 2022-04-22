@@ -116,14 +116,17 @@ def fit_rolling_seasonal_cycle(da, window=36, func="wnt_smr"):
 
     years = window / 12
     freq = f"{int(years)}AS"
-    offset = int(years / 2)
 
-    inputs = [
-        da.isel(time=slice(i, None))
-        .resample(time=freq, label="left", loffset=f"{offset}AS")
-        .apply(func)
-        for i in range(0, window, 12)
-    ]
+    inputs = []
+    for i0 in range(0, window, 12):
+        subset = da.isel(time=slice(i0, None))
+        resampled = subset.resample(time=freq)
+        sizes = resampled.count().mean(dims[1:])
+        valid = (sizes >= window).values
+        time_center = subset.time.resample(time=freq).mean().values[valid]
+        fitted = resampled.apply(func).isel(time=valid)
+        fitted = fitted.assign_coords(time=time_center)
+        inputs += (fitted,)
 
     dims = list(da.dims)
     dims.insert(1, "month")
@@ -138,16 +141,17 @@ def fit_rolling_seasonal_cycle(da, window=36, func="wnt_smr"):
     dims.remove("time")
 
     seasonal_fit = xr.DataArray(
-        data=out.values.reshape(*da.shape), coords=coords, dims=da.dims
+        data=out.values.reshape(times.size, *da.shape[1:]), coords=coords, dims=da.dims
     ).where(da.notnull().any(dims))
 
-    seasonal = seasonal_fit.resample(time="1Q-FEB").mean()
-    djf = (
+    seasonal = seasonal_fit.resample(time="1QS-JAN").mean()
+
+    jfm = (
         seasonal[0::4]
         .assign_coords(time=lambda x: x.time.dt.year.values)
         .rename(time="year")
     )
-    jja = (
+    jas = (
         seasonal[2::4]
         .assign_coords(time=lambda x: x.time.dt.year.values)
         .rename(time="year")
@@ -156,6 +160,8 @@ def fit_rolling_seasonal_cycle(da, window=36, func="wnt_smr"):
     ds = xr.Dataset()
     ds["seasonal_clim_fit"] = seasonal_fit
     ds["rmse"] = ((da - seasonal_fit) ** 2).mean("time") ** 0.5
-    ds["seas_jja_minus_djf"] = jja - djf
+    ds["seas_jas_minus_jfm"] = (jas - jfm).assign_coords(
+        year=lambda x: pd.to_datetime(x.year, format="%Y")
+    )
 
     return ds

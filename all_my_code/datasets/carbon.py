@@ -166,3 +166,59 @@ def seaflux(var_name="pco2atm", save_dir="~/Data/cached/"):
         url = variables[var_name]
         fname = download_file(url, path=save_dir, progress=True)
         return xr.open_dataset(fname, chunks={}).conform()
+
+
+def flux_weighting(wind=["CCMP2", "ERA5", "JRA55"], save_dir="~/Data/cached/"):
+    """
+    A wrapper around data.seaflux that calculates the flux weighting for
+    fast calculation of the potential flux or to weight by flux
+
+    Parameters
+    ----------
+    wind: list[str] | None
+        The wind products to calculate the flux weighting for. Defaults
+        to the standard CCMP2, ERA5 and JRA55 trio from the SeaFlux dataset.
+        NCEP1 and NCEP2 are also available.
+    save_dir: path string
+        A path to where the data will be downloaded. Will be expanded so ~
+        and relative paths can be used. Defaults to ~/Data/cached/. This
+        is passed to data.seaflux, so data is not doubled if already
+        downloaded with data.seaflux.
+
+    Returns
+    -------
+    xr.Dataset:
+        The flux weighting dataarray in molC/m2/yr/uatm. The dataset is
+        returned as a lazy array, meaning that it is fast if the data is
+        already downloaded. But the computation will still need to be
+        performed. Multiplying (pCO2sea - pCO2air) * flux_weighting will
+        return the flux in molC/m2/yr.
+    """
+
+    vars = ["kw", "sol", "ice"]
+    sf = seaflux(var_name=vars, save_dir=save_dir).drop("alpha")
+
+    if wind is not None:
+        sf = sf.sel(wind=wind)
+    sf = sf.mean(["wind"])
+
+    # doing calculations
+    ice_free = (1 - sf.ice).fillna(0)  # ice-free ocean
+    kw = sf.kw * 87.6  # cm/hr --> m/yr
+    sol = sf.sol  # mol/m3/uatm
+
+    flux_weight = (sol * kw * ice_free).assign_attrs(
+        product="SeaFlux",
+        source="https://zenodo.org/record/5482547#.YmK1L_NBy3I",
+        citation="https://doi.org/10.5194/essd-13-4693-2021",
+        long_name="flux_weighting",
+        description=(
+            "can be used to weight pCO2 or multiplied by "
+            "(pCO2sea - pCO2atm) to get the air-sea CO2 flux."
+        ),
+        units="molC/m2/yr/uatm",
+        kw_winds=wind,
+        kw_parameterisation="quadratic scaled for each wind product",
+    )
+
+    return flux_weight

@@ -136,21 +136,98 @@ def _sensitivities(ds_co2sys_inputs, **kwargs):
     return xr.merge([variables, sensitive])
 
 
-def decompose_carbsys_param_drivers(input_a, input_b, sens_name, var_name):
+def decompose_carbsys(
+    variable, sensitivity, scaling, driver_change, time_dim="time", with_slope=False
+):
     """
-    This may need revision
+    Decompose a carbonate system variable into driver and mechanism components.
 
-    average approach: a = averages; b = data
-    trend approach:   a = data;     b = trends
-        both of these should be a xr.Dataset, where variables are the
-        driver names. There must also be a component dimension that has
-        the following order (index starting 0):
-            0 = sensitivity
-            1 = carbonate system parameter
-            2 = change in the driver variable
-            3 = driver variable (for scaling)
-    sens_name: name of the sensitivity parameter (e.g. beta/gamma)
-    var_name:  name of the carbonate system parameter name (e.g. Hplus/pCO2)
+    A taylor decomposition
+
+    Note
+    ----
+    All inputs except 'variable' should contain the dimension 'driver'
+    which must contain: dic, alk, temp, and sal
+
+    Parameters
+    ----------
+    variable : xarray.DataArray
+        the marine carbonate system variable to decompose. Could be
+        pCO2, [H+], or Omega Ar/Ca
+    sensitivity : xarray.DataArray
+        the sensitivity of the variable to drivers. The sensitivity
+        should be gamma (pCO2), beta (H+), or omega (ar/ca). Should
+        contain a sensitivity for each driver (see note above)
+    scaling : xarray.DataArray
+        the driver variables that will be used for scaling
+    driver_change : xarray.DataArray
+        the change in the drivers. Can be the derivative of the
+        change or the change itself if you'd like to see the temporal
+        component - note that you will have to calculate the slope
+        of the changes to get the true contribution of the driver
+        change / time step.
+
+    Returns
+    -------
+    xarray.DataArray
+        the decomposed variable with the driver and mechanism.
+        drivers: are dic, alk, temp, and sal
+        mechanisms are: sensitivity, driver_change, variable_change
+    """
+    from ..stats.time_series import slope
+
+    drivers = ["dic", "alk", "temp", "sal"]
+    check_dims_in_da = lambda x: all([d in x.driver for d in drivers])
+
+    msg = f"{{}} must contain the dimension 'driver' which must contain: {drivers}"
+    assert check_dims_in_da(sensitivity), msg.format("sensitivity")
+    assert check_dims_in_da(scaling), msg.format("scaling")
+    assert check_dims_in_da(driver_change), msg.format("driver_change")
+
+    variable = variable.broadcast_like(sensitivity)
+    scaling = scaling.where(lambda x: x.driver != "temp").fillna(1)
+
+    # building the dataset that will be used for the taylor decomposition
+    mechanisms = ["sensitivity", "variable", "driver_change", "scaling"]
+    objs = [sensitivity, variable, driver_change, scaling]
+    mech = xr.IndexVariable("mechanism", mechanisms)
+    dat = xr.concat(objs, dim=mech).to_dataset(dim="driver")
+
+    # this removes the nans that result from any shorter time series
+    dat = dat.dropna(dim="time", how="any")
+
+    a = dat.mean(time_dim, keepdims=0)
+    b = dat.map(slope, dim=time_dim) if with_slope else dat
+
+    decomp = _taylor_decomposition_carbsys(a, b, sensitivity.name, variable.name)
+
+    return decomp
+
+
+def _taylor_decomposition_carbsys(input_a, input_b, sens_name, var_name):
+    """
+    Decompose a carbonate system variable into driver and mechanism components.
+
+    Mechanisms are a dimension of the both datasets with the following
+    order: sensitivity, variable, driver_change, scaling
+    Parameters
+    ----------
+    input_a : xarray.Dataset
+        dataset variables are the drivers and the mechanisms
+        are are the first dimension of the dataset
+    input_b : xarray.Dataset
+        the slope/ of the drivers and mechanisms. Dataset vars
+        are the drivers and the metchanisms are are the a dimension
+        first dimension of the dataset
+    sens_name : str
+        the name of the sensitivity variable (e.g. beta/gamma)
+    var_name : str
+        the name of the variable (e.g. Hplus/pCO2)
+
+    Returns
+    -------
+    xarray.DataArray
+        the decomposed variable with the driver and mechanisms as dimensions
     """
 
     a = input_a
@@ -159,18 +236,18 @@ def decompose_carbsys_param_drivers(input_a, input_b, sens_name, var_name):
     decomp = xr.Dataset()
     for key in a:
         decomp[key] = xr.concat(
-            [
+            [  # sensitiv.   variable     change      scaling
                 (b[key][0] * a[key][1] * a[key][2] / a[key][3]).assign_coords(
-                    component=sens_name
+                    mechanism=sens_name
                 ),
                 (a[key][0] * b[key][1] * a[key][2] / a[key][3]).assign_coords(
-                    component=var_name
+                    mechanism=var_name
                 ),
                 (a[key][0] * a[key][1] * b[key][2] / a[key][3]).assign_coords(
-                    component="change"
+                    mechanism="driver_change"
                 ),
             ],
-            "component",
+            "mechanism",
         )
     decomp = decomp.where(lambda x: x != 0)
 

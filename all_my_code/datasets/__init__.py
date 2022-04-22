@@ -78,6 +78,7 @@ class _amc_Data:
                 "fay_any_mckinley_2014_biomes",
                 "reccap2_regions",
                 "ar6_regions",
+                "hemisphere_sign",
             ]:
                 self.__dict__.pop(key, None)
         if download_dest is not None:
@@ -144,6 +145,12 @@ class _amc_Data:
         return func(resolution=self.res)
 
     @_cached_property
+    def hemisphere_sign(self):
+        from .masks import hemisphere_sign as func
+
+        return func(resolution=self.res)
+
+    @_cached_property
     def topography(self):
         from .masks import topography as func
 
@@ -168,6 +175,14 @@ class _amc_Data:
     @_wraps(carbon.seaflux)
     def seaflux(self, *args, **kwargs):
         from .carbon import seaflux as func
+
+        props = dict(save_dir=self.download_dest)
+        props.update(kwargs)
+        return func(*args, **props)
+
+    @_wraps(carbon.flux_weighting)
+    def flux_weighting(self, *args, **kwargs):
+        from .carbon import flux_weighting as func
 
         props = dict(save_dir=self.download_dest)
         props.update(kwargs)
