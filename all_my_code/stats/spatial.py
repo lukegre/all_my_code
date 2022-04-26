@@ -1,10 +1,9 @@
 from ..utils import make_xarray_accessor as _make_xarray_accessor
 import xarray as xr
 import numpy as np
-from functools import wraps as _wraps
 
 
-def avg_area_weighted(da, dims=['lat', 'lon']):
+def average_area_weighted(da, dims=["lat", "lon"]):
     """
     Calculates the area weighted average for a data array
 
@@ -25,7 +24,9 @@ def avg_area_weighted(da, dims=['lat', 'lon']):
     return da.weighted(area).mean(dims)
 
 
-def aggregate_region(xda, region_mask=None, region_names=None, weights='area', func='mean'):
+def aggregate_region(
+    xda, region_mask=None, region_names=None, weights="area", func="mean"
+):
     """
     Average a data array over a region mask with area weighting
 
@@ -42,7 +43,7 @@ def aggregate_region(xda, region_mask=None, region_names=None, weights='area', f
         the aggregation. If None, all values are weighted equally. If 'area',
         then the area will be calculated from region_mask.
     func : str [mean]
-        The function to use for aggregation. Must be a method of a 
+        The function to use for aggregation. Must be a method of a
         weighted_mean object.
 
     Returns
@@ -59,14 +60,16 @@ def aggregate_region(xda, region_mask=None, region_names=None, weights='area', f
 
     # first make sure that weights is a string before we do the string compare
     if isinstance(weights, str):
-        # areas will be weighted be area 
-        if (weights == 'area'):
+        # areas will be weighted be area
+        if weights == "area":
             weights = region_mask.spatial.get_area()
 
     groups = xda.groupby(region_mask)
 
     if region_names is not None:
-        assert len(groups) == len(region_names), "Number of groups does not match number of region names"
+        assert len(groups) == len(
+            region_names
+        ), "Number of groups does not match number of region names"
 
     regional = []
     for r, da in groups:
@@ -75,25 +78,29 @@ def aggregate_region(xda, region_mask=None, region_names=None, weights='area', f
             da = da.weighted(weights)
         func_ = getattr(da, func, None)
         if func_ is not None:
-            da = func_(['lat', 'lon'])
+            da = func_(["lat", "lon"])
         else:
             raise ValueError(
-                f"{func} is not available as an aggregation function for weighted arrays. "
+                f"{func} not available as an aggregation function for weighted arrays."
                 f"Try setting weights to None"
-                )
+            )
         da = da.assign_coords(region=r)
-        regional += da,
-        
-    regional = xr.concat(regional, 'region')
+        regional += (da,)
+
+    regional = xr.concat(regional, "region")
 
     if region_names is not None:
         regional = regional.assign_coords(region=region_names)
 
     return regional
-    
+
 
 def pca_decomp(
-    xda, n_components=10, return_plots=False, return_pca=False, **pca_kwargs,
+    xda,
+    n_components=10,
+    return_plots=False,
+    return_pca=False,
+    **pca_kwargs,
 ):
     """
     Apply a principle component decomposition to a dataset with
@@ -210,7 +217,13 @@ def _pca_plot(xds_pca):
         a0.set_ylabel("Component {}\n({:.2f}%)".format(i + 1, var), fontsize=12)
 
         img = a1.pcolormesh(
-            px, py, pz, vmin=-lim, rasterized=True, vmax=lim, cmap=plt.cm.RdBu_r,
+            px,
+            py,
+            pz,
+            vmin=-lim,
+            rasterized=True,
+            vmax=lim,
+            cmap=plt.cm.RdBu_r,
         )
         plt.colorbar(img, ax=a1)
         img.colorbar.set_label("Transformed units")
@@ -222,8 +235,7 @@ def _pca_plot(xds_pca):
             pass
 
     title = (
-        "Principle Component Analysis (PCA) "
-        "for {} showing the first {} components"
+        "Principle Component Analysis (PCA) " "for {} showing the first {} components"
     )
     fig.suptitle(
         title.format(xds_pca.name, n),
@@ -252,7 +264,7 @@ def earth_radius(lat):
     a = 6378137
     b = 6356752
     r = (
-        ((a ** 2 * cos(lat)) ** 2 + (b ** 2 * sin(lat)) ** 2)
+        ((a**2 * cos(lat)) ** 2 + (b**2 * sin(lat)) ** 2)
         / ((a * cos(lat)) ** 2 + (b * sin(lat)) ** 2)
     ) ** 0.5
 
@@ -315,13 +327,15 @@ def get_area(da, lat_name="lat", lon_name="lon"):
 
     out = area_grid(y, x, return_dataarray=True)
 
-    name = getattr(da, 'name', 'xr.DataArray')
-    description = out.attrs.get('description', '')
-    description += f' Area calculated from the latitude and longitude coordinates of {name}'
+    name = getattr(da, "name", "xr.DataArray")
+    description = out.attrs.get("description", "")
+    description += (
+        f" Area calculated from the latitude and longitude coordinates of {name}"
+    )
 
-    out.attrs['description'] = description
-    
+    out.attrs["description"] = description
+
     return out
 
 
-_make_xarray_accessor("spatial", [avg_area_weighted, aggregate_region, get_area])
+_make_xarray_accessor("spatial", [average_area_weighted, aggregate_region, get_area])

@@ -1,33 +1,8 @@
-from os import access
 import xarray as xr
 import numpy as np
-import joblib
-from functools import wraps as _wraps
-from ..utils import make_xarray_accessor as _make_xarray_accessor
 
 
-def rolling_stat_parallel(da_in, func, window_size=3, n_jobs=36, dim='time'):
-    
-    roll = da_in.rolling(time=window_size, min_periods=3, center=True)
-    
-    time = xr.concat([t for t, _ in roll], dim)
-    
-    if n_jobs > 1:
-        pool = joblib.Parallel(n_jobs=n_jobs)
-        func = joblib.delayed(func)
-        queue = [func(xda) for _, xda in roll]
-        out = pool(queue)
-    else:
-        out = [func(xda) for _, xda in roll]
-    trends = xr.DataArray(
-        data=np.array(out),
-        dims=da_in.dims, 
-        coords=da_in.coords)
-
-    return trends
-
-
-def slope(da, dim='time'):
+def slope(da, dim="time"):
     """
     Calculate the first order linear slope per {dim} unit
 
@@ -37,7 +12,7 @@ def slope(da, dim='time'):
         the data to calculate the slope of
     dim: str [time]
         the dimension to calculate the slope over
-    
+
     Returns
     -------
     xr.DataArray
@@ -45,35 +20,38 @@ def slope(da, dim='time'):
     """
     from warnings import filterwarnings
 
-    filterwarnings('ignore', message=".*poorly conditioned.*")
+    filterwarnings("ignore", message=".*poorly conditioned.*")
 
     # assign the dimension as step from 1 to the length of the dimension
     da = da.assign_coords(**{dim: np.arange(da[dim].size)})
     slope = (
         da.polyfit(dim, 1, skipna=True)
         .polyfit_coefficients[0]
-        .drop('degree')
-        .assign_attrs(units=f'units/{dim}_step'))
-    slope = slope.append_attrs(history=f'Calculated linear slope along the `{dim}` dimension')
+        .drop("degree")
+        .assign_attrs(units=f"units/{dim}_step")
+    )
+    slope = slope.append_attrs(
+        history=f"Calculated linear slope along the `{dim}` dimension"
+    )
 
     return slope
 
 
-def climatology(da, tile=False, groupby_dim='time.month'):
+def climatology(da, tile=False, groupby_dim="time.month"):
     """
     Calculate the climatology of a time series
 
     Parameters
     ----------
     tile : bool
-        If True, the output data will be the same size and have the 
+        If True, the output data will be the same size and have the
         same dimensions as the input data array
     groupby_dim : str
-        Uses the xarray notation to group along a dimension. 
+        Uses the xarray notation to group along a dimension.
 
     """
 
-    dim0, dim1 = groupby_dim.split('.')
+    dim0, dim1 = groupby_dim.split(".")
     clim = da.groupby(groupby_dim).mean(dim0)
 
     if tile:
@@ -81,12 +59,13 @@ def climatology(da, tile=False, groupby_dim='time.month'):
         clim = clim.sel(**{dim1: times}).drop(dim1)
 
     clim = clim.append_attrs(
-        history=f'Calculated the `{dim1}` climatology along the `{dim0}` dimension')
+        history=f"Calculated the `{dim1}` climatology along the `{dim0}` dimension"
+    )
 
     return clim
 
 
-def deseasonalise(da, groupby_dim='time.month'):
+def deseasonalise(da, groupby_dim="time.month"):
     """
     Remove the seasonal cycle from the time series
 
@@ -103,20 +82,21 @@ def deseasonalise(da, groupby_dim='time.month'):
         the time series without the seasonal cycle
     """
 
-    dim0, dim1 = groupby_dim.split('.')
+    dim0, dim1 = groupby_dim.split(".")
     grp = da.groupby(groupby_dim)
     seasonal_cycle = grp.mean(dim0)
     seasonal_cycle -= seasonal_cycle.mean(dim1)
     deseasonalised = grp - seasonal_cycle
-    deseasonalised = deseasonalised.assign_attrs(units=da.attrs.get('units', ''))
+    deseasonalised = deseasonalised.assign_attrs(units=da.attrs.get("units", ""))
 
     deseasonalised = deseasonalised.append_attrs(
-        history=f'Removed the `{dim1}` climatology along the `{dim0}` dimension')
+        history=f"Removed the `{dim1}` climatology along the `{dim0}` dimension"
+    )
 
     return deseasonalised
 
 
-def trend(da, dim='time', deg=1, coef=None):
+def trend(da, dim="time", deg=1, coef=None):
     """
     The trend over the given dimension
 
@@ -148,18 +128,19 @@ def trend(da, dim='time', deg=1, coef=None):
     # mask nans where all are nan along a given dimension
     mask = da.notnull().any(dim)
     trend = trend.where(mask)
-    
-    name = getattr(da, 'name', None)
-    name = name + '_' if name is not None else ''
-    trend.name = name + 'predicted_trend'
+
+    name = getattr(da, "name", None)
+    name = name + "_" if name is not None else ""
+    trend.name = name + "predicted_trend"
 
     trend = trend.append_attrs(
-        history=f'Calculated the {deg}-order trend along the `{dim}` dimension')
+        history=f"Calculated the {deg}-order trend along the `{dim}` dimension"
+    )
 
     return trend
 
 
-def detrend(da, dim='time', deg=1, coef=None):
+def detrend(da, dim="time", deg=1, coef=None):
     """
     Remove the trend along the [time] dimension
 
@@ -180,12 +161,13 @@ def detrend(da, dim='time', deg=1, coef=None):
 
     da_detrend = da - trend(da, dim=dim, deg=deg, coef=coef)
     da_detrend = da_detrend.append_attrs(
-        history=f'Removed the {deg}-order trend along the `{dim}` dimension')
+        history=f"Removed the {deg}-order trend along the `{dim}` dimension"
+    )
 
     return da_detrend
 
 
-def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
+def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
     """
     Full linear regression with all stats (coefs, r2, pvalue, rmse, +)
 
@@ -208,86 +190,91 @@ def linregress(y, x=None, dim='time', deg=1, full=True, drop_polyfit_name=True):
     Returns
     -------
     linregress : xr.DataArray
-        the linear regression results containing coefficients, 
-        rsquared, pvalue, and rmse 
+        the linear regression results containing coefficients,
+        rsquared, pvalue, and rmse
     """
     from scipy.stats import beta
     from xarray import DataArray, Dataset
 
     if isinstance(y, Dataset):
         from ..utils import run_parallel
+
         inputs = [y[k].rename(k) for k in y]
         outputs = run_parallel(
-            linregress, 
-            inputs, 
+            linregress,
+            inputs,
             kwargs=dict(dim=dim, deg=deg, full=full, drop_polyfit_name=False),
-            verbose=True)
+            verbose=True,
+        )
 
         return xr.merge(outputs)
 
-    skipna = True
     # total sum of squares (use this for non-agg dimensions)
     tss = np.square(y - y.mean(dim)).sum(dim)
-    
+
     if x is not None:
         if isinstance(x, DataArray):
             xx = x.munging.drop_0d_coords().dropna(dim)
             xname = x.name
         else:
-            xx = DataArray(
-                data=x, 
-                dims=[dim], 
-                coords={dim: y[dim]})
-            xname = 'x'
-    
+            xx = DataArray(data=x, dims=[dim], coords={dim: y[dim]})
+            xname = "x"
+
         # create regession array
         coords = {k: tss[k].values for k in tss.coords}
         coords[xname] = xx.values
         yy = xr.DataArray(
-            data=y.sel(**{dim: xx[dim]}).values, 
+            data=y.sel(**{dim: xx[dim]}).values,
             dims=[xname] + list(tss.dims),
-            coords=coords)
+            coords=coords,
+        )
         dim = xname
     else:
-        assert dim in y.dims, 'given dimension is not in y'
+        assert dim in y.dims, "given dimension is not in y"
         yy = y
 
     # calculate polyfit
     fit = yy.polyfit(dim, deg, full=full)
-    
+
     if not full:
         return fit
-    
+
     # residual sum of squares
     rss = fit.polyfit_residuals
-    
-    fit['polyfit_rsquared'] = (1 - (rss / tss)).assign_attrs(description='pearsons r-value squared')
-    r = fit['polyfit_rsquared']**0.5
+
+    fit["polyfit_rsquared"] = (1 - (rss / tss)).assign_attrs(
+        description="pearsons r-value squared"
+    )
+    r = fit["polyfit_rsquared"] ** 0.5
 
     n = yy[dim].size
     # creating the distribution for pvalue
-    dist = beta(n/2 - 1, n/2 - 1, loc=-1, scale=2)
-    
-    # calculating R value
-    fit['polyfit_pvalue'] = (r * np.nan).fillna(2 * dist.cdf(-abs(r)))
-    fit['polyfit_rmse'] = (rss / n)**0.5
+    dist = beta(n / 2 - 1, n / 2 - 1, loc=-1, scale=2)
 
-    name = getattr(y, 'name', None)
+    # calculating R value
+    fit["polyfit_pvalue"] = (r * np.nan).fillna(2 * dist.cdf(-abs(r)))
+    fit["polyfit_rmse"] = (rss / n) ** 0.5
+
+    name = getattr(y, "name", None)
     if drop_polyfit_name:
-        rename_dict = {k: k.replace('polyfit_', '') for k in fit}
+        rename_dict = {k: k.replace("polyfit_", "") for k in fit}
         fit = fit.rename(rename_dict)
     elif name is not None:
         rename_dict = {k: f"{name}_{k}" for k in fit}
         fit = fit.rename(rename_dict)
 
-    fit = fit.append_attrs(history="Full linear regression with all stats (coefs, r2, pvalue, rmse, +)")
+    fit = fit.append_attrs(
+        history="Full linear regression with all stats (coefs, r2, pvalue, rmse, +)"
+    )
 
     return fit
 
 
-def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_poly_order=1, dim='time'):
+def time_of_emergence_stdev(
+    da, deseasonalise=True, noise_multiplier=2, detrend_poly_order=1, dim="time"
+):
     """
-    Calculate time of emergence based on standard deviation 
+    Calculate time of emergence based on standard deviation
 
     Parameters
     ----------
@@ -295,7 +282,7 @@ def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_
         data for which to calculate the ToE
     type : str [deseason | seasonal_cycle]
         determines if the "noise" of the ToE calculation is based on
-        the standard deviation of the detrended data or based on the 
+        the standard deviation of the detrended data or based on the
         standard deviation of the seasonal cycle
     noise_multiplier : float [2]
         how much confidence you want - sigma * 2 = 95th percentile
@@ -308,29 +295,29 @@ def time_of_emergence_stdev(da, deseasonalise=True, noise_multiplier=2, detrend_
         the time of emergence in years
     """
 
-    name = getattr(da, 'name', None)
-    name = name + '_' if name is not None else ''
-    
+    name = getattr(da, "name", None)
+    name = name + "_" if name is not None else ""
+
     noise_in = da.time_series.detrend(deg=detrend_poly_order, dim=dim)
     if deseasonalise:
         noise_in = noise_in.time_series.deseasonalise()
-        
-    noise = noise_in.std(dim) * noise_multiplier
-    slope = da.resample(**{dim: '1AS'}).mean().time_series.slope(dim=dim)
-        
-    toe = (noise / abs(slope)).assign_attrs(
-        description=(
-            'time of emergence in years (based on standard deviation) '
-        ),
-        long_name=f'{name}time_of_emergence',
-        units='years'
-    )
-    toe = toe.append_attrs(history="Time of Emergence calculated using standard deviation")
-    
-    return toe
-        
 
-def interannual_variability(da, dim='time'):
+    noise = noise_in.std(dim) * noise_multiplier
+    slope = da.resample(**{dim: "1AS"}).mean().time_series.slope(dim=dim)
+
+    toe = (noise / abs(slope)).assign_attrs(
+        description=("time of emergence in years (based on standard deviation) "),
+        long_name=f"{name}time_of_emergence",
+        units="years",
+    )
+    toe = toe.append_attrs(
+        history="Time of Emergence calculated using standard deviation"
+    )
+
+    return toe
+
+
+def interannual_variability(da, dim="time"):
     """
     Calculate the interannual variability of a time series
 
@@ -346,7 +333,7 @@ def interannual_variability(da, dim='time'):
     """
 
     # calculate the mean of the data
-    da_annual = da.resample(time='1AS', loffset='182D').mean()
+    da_annual = da.resample(time="1AS", loffset="182D").mean()
     da_detrend = da_annual.time_series.detrend()
 
     # calculate the standard deviation of the data
@@ -355,18 +342,31 @@ def interannual_variability(da, dim='time'):
     return interannual_variability
 
 
-_func_registry = [
-    linregress,
-    slope,
-    climatology,
-    deseasonalise,
-    trend,
-    detrend,
-    rolling_stat_parallel,
-    interannual_variability,
-    time_of_emergence_stdev,
-]
+def anom(da, dim="time", ref=None):
+    """
+    Calculate the anomaly of a time series
 
+    Parameters
+    ----------
+    da : xr.DataArray
+        a data array for which you want to calculate the anomaly
+    ref : int | None
+        the reference year for the anomaly calculation
+        if None, the the mean of the period is chosen
 
-_make_xarray_accessor("time_series", _func_registry, accessor_type='both')
-_make_xarray_accessor("ts", _func_registry, accessor_type='both')
+    Returns
+    -------
+    anom : xr.DataArray
+        the anomaly of the input
+    """
+
+    if ref is None:
+        ref = da.mean(dim=dim)
+    elif isinstance(ref, int):
+        ref = da.isel(**{dim: ref})
+    else:
+        raise ValueError("ref must be an int or None")
+
+    anom = da - ref
+
+    return anom
