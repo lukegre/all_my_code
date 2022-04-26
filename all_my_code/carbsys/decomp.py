@@ -215,12 +215,23 @@ def decompose_carbsys(
     a = dat.mean(time_dim, keepdims=0)
     b = dat.map(slope, dim=time_dim) if with_slope else dat
 
-    decomp = _taylor_decomposition_carbsys(a, b, sensitivity.name, variable.name)
+    decomp = _taylor_decomposition_carbsys(a, b)
+    decomp = decomp.assign_coords(driver=["sDIC", "sALK", "TEMP", "FW"])
+
+    summed = decomp.sum(dim=["mechanism", "driver"]).expand_dims(
+        driver=["SUM"], mechanism=["SUM"]
+    )
+
+    decomp = xr.concat([decomp, summed], dim="driver")
+    decomp = decomp.sel(
+        driver=["SUM", "sDIC", "sALK", "TEMP", "FW"],
+        mechanism=["SUM", "sensitivity", "variable", "driver_change"],
+    )
 
     return decomp
 
 
-def _taylor_decomposition_carbsys(input_a, input_b, sens_name, var_name):
+def _taylor_decomposition_carbsys(input_a, input_b):
     """
     Decompose a carbonate system variable into driver and mechanism components.
 
@@ -235,10 +246,6 @@ def _taylor_decomposition_carbsys(input_a, input_b, sens_name, var_name):
         the slope/ of the drivers and mechanisms. Dataset vars
         are the drivers and the metchanisms are are the a dimension
         first dimension of the dataset
-    sens_name : str
-        the name of the sensitivity variable (e.g. beta/gamma)
-    var_name : str
-        the name of the variable (e.g. Hplus/pCO2)
 
     Returns
     -------
@@ -252,19 +259,13 @@ def _taylor_decomposition_carbsys(input_a, input_b, sens_name, var_name):
     decomp = xr.Dataset()
     for key in a:
         decomp[key] = xr.concat(
-            [  # sensitiv.   variable     change      scaling
-                (b[key][0] * a[key][1] * a[key][2] / a[key][3]).assign_coords(
-                    mechanism=sens_name
-                ),
-                (a[key][0] * b[key][1] * a[key][2] / a[key][3]).assign_coords(
-                    mechanism=var_name
-                ),
-                (a[key][0] * a[key][1] * b[key][2] / a[key][3]).assign_coords(
-                    mechanism="driver_change"
-                ),
+            [  # sensitiv    variable     change      scaling
+                b[key][0] * a[key][1] * a[key][2] / a[key][3],
+                a[key][0] * b[key][1] * a[key][2] / a[key][3],
+                a[key][0] * a[key][1] * b[key][2] / a[key][3],
             ],
             "mechanism",
-        )
+        ).assign_coords(mechanism=["sensitivity", "variable", "driver_change"])
     decomp = decomp.where(lambda x: x != 0)
 
-    return decomp.to_array(dim="driver", name=var_name)
+    return decomp.to_array(dim="driver")
