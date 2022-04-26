@@ -13,7 +13,6 @@ _func_registry = [
     time_series.deseasonalise,
     time_series.trend,
     time_series.detrend,
-    time_series.rolling_stat_parallel,
     time_series.interannual_variability,
     time_series.time_of_emergence_stdev,
     seas_cycle.seascycl_fit_graven,
