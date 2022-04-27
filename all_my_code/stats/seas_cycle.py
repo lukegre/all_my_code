@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 
 
-def seascycl_fit_graven(da, window=36, stride=12, dim="time"):
+def seascycl_fit_graven(da, n_years=3, dim="time"):
     """
     Fits a seasonal cycle to data using cos and sin functions.
 
@@ -17,24 +17,67 @@ def seascycl_fit_graven(da, window=36, stride=12, dim="time"):
     Parameters
     ----------
     da : xarray.DataArray
-        The data to fit a seasonal cycle to
-    window : int
-        The number of months to fit the seasonal cycle to
-    stride : int
-        The number of months to advance the window.
+        The data to fit a seasonal cycle to. Time dimension must be a time index
+    n_years : int
+        The number of years to fit the seasonal cycle to (a rolling window)
     dim : str
-        The dimension to use for the window.
+        The name of the time dimension. Must be a time index
 
     Returns
     -------
     xarray.Dataset
         The fitted seasonal cycle and the difference between the JJA and DJF
     """
+
+    def get_number_of_time_steps_in_year(time, raise_if_uneven=True):
+        """
+        Get the number of time steps in a year (e.g. months, days, etc.)
+        """
+        # get the unique years from the time array with counts
+        years = time.dt.year.values
+        unique, counts = np.unique(years, return_counts=True)
+
+        all_the_same = np.all(counts == counts[0])
+        if not all_the_same and raise_if_uneven:
+            raise ValueError(f"time array is not evenly spaced: {time}")
+        else:
+            return counts[0]
+
+    def get_months_from_time(time, months, tile=1):
+        """
+        gets the index of the given months in the time array
+        will only give index for first year unless tile > 1
+        """
+
+        # get the unique years from the time array with counts
+        years = time.dt.year.values
+        unique, counts = np.unique(years, return_counts=True)
+
+        # assert that all counts are the same
+        msg = "this function does not work for unevenly spaced time"
+        assert np.all(counts == counts[0]), msg
+        n_steps = counts[0]
+
+        year_month = time.dt.month.values[years == unique[0]]
+
+        # get the months that are in the list
+        bool_idx = np.isin(year_month, months)
+        # get the indices of the months that are in the list
+        loc_idx = np.where(bool_idx)[0]
+
+        # tile the indicies so the fit the given tile
+        idxs = [loc_idx + i * n_steps for i in range(tile)]
+        idxs = np.concatenate(idxs)
+
+        return idxs
+
     from numba import njit
     from numpy import sin, cos, pi
 
-    assert window % stride == 0, "window must be a multiple of stride"
-    assert (window / stride) % 2, "window / stride must be an odd number"
+    stride = get_number_of_time_steps_in_year(da[dim])
+    window = n_years * stride
+
+    assert n_years % 2, "n_years must be an odd number"
 
     def fit_sc(x, a1, a2, a3, a4, a5, a6, a7):
         """function to fit as defined by Peter"""
@@ -50,37 +93,41 @@ def seascycl_fit_graven(da, window=36, stride=12, dim="time"):
 
     dims = list(da.dims)
     dims.remove(dim)
+
     windowed = (
         da.rolling(**{dim: window}, center=True, min_periods=stride)
-        .construct(**{dim: "month"}, stride=stride)
+        .construct(**{dim: "time_step"}, stride=stride)
         .stack(other=dims)
-        .where(lambda x: x.notnull().sum("month") > 12, drop=True)
-        .assign_coords(month=np.arange(window) % 12 + 1)
+        .where(lambda x: x.notnull().sum("time_step") > stride, drop=True)
+        .assign_coords(time_step=(np.arange(window) % stride + 1) / stride)
     )
 
     fast_func = njit()(fit_sc)
     coefs = windowed.curvefit(
-        coords="month",
+        coords="time_step",
         func=fast_func,
         p0=[300, 1.1, 0.01, -3, -7, 5.5, 5.5],
         kwargs={"maxfev": 100},
     )
 
     seas_cycle = (
-        fit_sc(windowed.month, *coefs.curvefit_coefficients.T)
+        # multiply out coefficients
+        fit_sc(windowed.time_step, *coefs.curvefit_coefficients.T)
         .drop("param")
-        .assign_coords(month=lambda x: x.month)
-        .groupby("month")
+        .assign_coords(time_step=lambda x: x.time_step * stride)
+        .groupby("time_step")
         .mean()
         .unstack()
     )
 
-    mon_avg = lambda x, m: x.sel(month=m).mean("month")
+    idx_jja = get_months_from_time(da.time, [6, 7, 8])
+    idx_djf = get_months_from_time(da.time, [12, 1, 2])
+    jja = seas_cycle.isel(time_step=idx_jja).mean(dim="time_step")
+    djf = seas_cycle.isel(time_step=idx_djf).mean(dim="time_step")
+
     out = xr.Dataset()
     out["seas_cycle"] = seas_cycle
-    out["jja_minus_djf"] = mon_avg(seas_cycle, [6, 7, 8]) - mon_avg(
-        seas_cycle, [12, 1, 2]
-    )
+    out["jja_minus_djf"] = jja - djf
 
     return out
 

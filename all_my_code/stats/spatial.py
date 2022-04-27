@@ -54,7 +54,6 @@ def aggregate_region(
     from warnings import warn
 
     assert isinstance(region_mask, xr.DataArray), "region_mask must be a DataArray"
-    assert region_mask.dtype == np.int_, "region_mask must be an integer array"
     if region_mask.ndim > 2:
         warn("Your mask array has more than two dimensions. This might take some time")
 
