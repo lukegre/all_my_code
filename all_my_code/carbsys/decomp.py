@@ -204,7 +204,7 @@ def decompose_carbsys(
     scaling = scaling.where(lambda x: x.driver != "temp").fillna(1)
 
     # building the dataset that will be used for the taylor decomposition
-    mechanisms = ["sensitivity", "variable", "driver_change", "scaling"]
+    mechanisms = ["driver_sensitivity", "carbsys_variable", "driver_change", "scaling"]
     objs = [sensitivity, variable, driver_change, scaling]
     mech = xr.IndexVariable("mechanism", mechanisms)
     dat = xr.concat(objs, dim=mech).to_dataset(dim="driver")
@@ -225,7 +225,7 @@ def decompose_carbsys(
     decomp = xr.concat([decomp, summed], dim="driver")
     decomp = decomp.sel(
         driver=["SUM", "sDIC", "sALK", "TEMP", "FW"],
-        mechanism=["SUM", "sensitivity", "variable", "driver_change"],
+        mechanism=["SUM", "driver_sensitivity", "carbsys_variable", "driver_change"],
     )
 
     return decomp
@@ -265,7 +265,9 @@ def _taylor_decomposition_carbsys(input_a, input_b):
                 a[key][0] * a[key][1] * b[key][2] / a[key][3],
             ],
             "mechanism",
-        ).assign_coords(mechanism=["sensitivity", "variable", "driver_change"])
+        ).assign_coords(
+            mechanism=["driver_sensitivity", "carbsys_variable", "driver_change"]
+        )
     decomp = decomp.where(lambda x: x != 0)
 
     return decomp.to_array(dim="driver")
