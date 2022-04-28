@@ -29,20 +29,6 @@ def seascycl_fit_graven(da, n_years=3, dim="time"):
         The fitted seasonal cycle and the difference between the JJA and DJF
     """
 
-    def get_number_of_time_steps_in_year(time, raise_if_uneven=True):
-        """
-        Get the number of time steps in a year (e.g. months, days, etc.)
-        """
-        # get the unique years from the time array with counts
-        years = time.dt.year.values
-        unique, counts = np.unique(years, return_counts=True)
-
-        all_the_same = np.all(counts == counts[0])
-        if not all_the_same and raise_if_uneven:
-            raise ValueError(f"time array is not evenly spaced: {time}")
-        else:
-            return counts[0]
-
     def get_months_from_time(time, months, tile=1):
         """
         gets the index of the given months in the time array
@@ -74,7 +60,7 @@ def seascycl_fit_graven(da, n_years=3, dim="time"):
     from numba import njit
     from numpy import sin, cos, pi
 
-    stride = get_number_of_time_steps_in_year(da[dim])
+    stride = _get_number_of_time_steps_in_year(da[dim])
     window = n_years * stride
 
     assert n_years % 2, "n_years must be an odd number"
@@ -132,7 +118,7 @@ def seascycl_fit_graven(da, n_years=3, dim="time"):
     return out
 
 
-def seascycl_fit_climatology(da, window=36, stride=12, dim="time"):
+def seascycl_fit_climatology(da, n_years=3, dim="time"):
     """
     Fit a seasonal cycle to the climatology of a time series.
 
@@ -151,8 +137,9 @@ def seascycl_fit_climatology(da, window=36, stride=12, dim="time"):
     xarray.Dataset
         The seasonal cycle and the difference between the JJA and DJF
     """
-    assert window % stride == 0, "window must be a multiple of stride"
-    assert (window / stride) % 2, "window / stride must be an odd number"
+
+    stride = _get_number_of_time_steps_in_year(da[dim])
+    window = n_years * stride
 
     dims = list(da.dims)
     dims.remove(dim)
@@ -172,3 +159,18 @@ def seascycl_fit_climatology(da, window=36, stride=12, dim="time"):
     )
 
     return out
+
+
+def _get_number_of_time_steps_in_year(time, raise_if_uneven=True):
+    """
+    Get the number of time steps in a year (e.g. months, days, etc.)
+    """
+    # get the unique years from the time array with counts
+    years = time.dt.year.values
+    unique, counts = np.unique(years, return_counts=True)
+
+    all_the_same = np.all(counts == counts[0])
+    if not all_the_same and raise_if_uneven:
+        raise ValueError(f"time array is not evenly spaced: {time}")
+    else:
+        return counts[0]
