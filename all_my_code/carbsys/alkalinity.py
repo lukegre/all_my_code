@@ -231,8 +231,8 @@ def esper_liar(
         total alkalinity
     """
     import pandas as pd
-    from pandas import concat
-    from numpy import array, zeros
+    from pandas import DataFrame
+    from numpy import array, zeros, c_
     from scipy.interpolate import RegularGridInterpolator as grid_interp
 
     def fetch_esper_data_as_xarray(eq_case):
@@ -322,6 +322,9 @@ def esper_liar(
     vars = array([sal, temp, nitrate, oxygen, silicate], dtype="O")
     avail = array([v is not None for v in vars])
 
+    # convert all data to series if not already
+    depth, lat, lon = pd.Series(depth), pd.Series(lat), pd.Series(lon)
+
     # make sure all variables have the same shape as salinity
     # which is the only variable that is required for all cases
     assert [
@@ -359,22 +362,27 @@ def esper_liar(
     eq = eq[0]  # take the first entry
 
     x = vars[avail].tolist() + [sal * 0 + 1]
+    x = c_[[array(v, dtype=float) for v in x]].T
     x_names = names[avail].tolist() + ["0"]
-    preds = concat(x, axis=1).set_axis(x_names, axis=1, inplace=False)
+    preds = DataFrame(x, columns=x_names)
 
+    # longitude has to be 0-360
     lon360 = lon % 360
-    coords = concat([depth, lat, lon360], axis=1)
+    # create coordinate df for interpolation
+    coords = DataFrame(array([depth, lat, lon360]).T, columns=["depth", "lat", "lon"])
 
+    # downloads the coefficients from the remote database
     coefs = fetch_esper_data_as_xarray(eq)
 
     # create an empty output array
     yhat = pd.Series(
-        zeros(preds.shape[0]),
-        index=[depth, lat, lon],
+        zeros(preds.shape[0]),  # same shape as the input
+        index=[depth, lat, lon],  # note we use the original lon not lon360
         name="alkalinity_esper",
-        dtype="float64",
+        dtype="float32",
     )
-
+    # loop through each coeffcient and multiply it by the predictor
+    # adding it to yhat. In the end we take the sum of all products
     for key in coefs.coef.values:
         # creating a grid interpolator - very fast
         points = coefs.depth, coefs.lat, coefs.lon
