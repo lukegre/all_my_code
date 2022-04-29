@@ -15,6 +15,8 @@ _func_registry = [
     time_series.detrend,
     time_series.interannual_variability,
     time_series.time_of_emergence_stdev,
+    time_series.corr,
+    time_series.auto_corr,
     seas_cycle.seascycl_fit_graven,
     seas_cycle.seascycl_fit_climatology,
     smoothen.lowess,

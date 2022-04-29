@@ -1,7 +1,9 @@
 import xarray as xr
 import numpy as np
+from ..utils import apply_to_dataset
 
 
+@apply_to_dataset
 def slope(da, dim="time"):
     """
     Calculate the first order linear slope per {dim} unit
@@ -37,6 +39,7 @@ def slope(da, dim="time"):
     return slope
 
 
+@apply_to_dataset
 def climatology(da, tile=False, groupby_dim="time.month"):
     """
     Calculate the climatology of a time series
@@ -65,6 +68,7 @@ def climatology(da, tile=False, groupby_dim="time.month"):
     return clim
 
 
+@apply_to_dataset
 def deseasonalise(da, groupby_dim="time.month"):
     """
     Remove the seasonal cycle from the time series
@@ -96,6 +100,7 @@ def deseasonalise(da, groupby_dim="time.month"):
     return deseasonalised
 
 
+@apply_to_dataset
 def trend(da, dim="time", deg=1, coef=None):
     """
     The trend over the given dimension
@@ -140,6 +145,7 @@ def trend(da, dim="time", deg=1, coef=None):
     return trend
 
 
+@apply_to_dataset
 def detrend(da, dim="time", deg=1, coef=None):
     """
     Remove the trend along the [time] dimension
@@ -165,6 +171,70 @@ def detrend(da, dim="time", deg=1, coef=None):
     )
 
     return da_detrend
+
+
+@apply_to_dataset
+def corr(da1, da2, lag=0, dim="time"):
+    """
+    Calculate the correlation between two xarray.DataArray objects.
+
+    Parameters
+    ----------
+    da1: xr.DataArray
+        The first data array
+    da2: xr.DataArray
+        The second data array
+    lag: int or list of ints [0]
+        The lag between the two data arrays
+    dim: str
+        The name of the time dimension
+
+    Returns
+    -------
+    xr.DataArray
+        The correlation between the two data arrays
+    """
+    from pandas.api.types import is_list_like
+
+    assert isinstance(da2, xr.DataArray), "da2 must be an xarray.DataArray"
+
+    if is_list_like(lag):
+        assert all(
+            isinstance(x, (np.int_, int)) for x in lag
+        ), "all entries in lag must be integers"
+        lagged = xr.concat([da2.shift(**{dim: x}) for x in lag], "lag").assign_coords(
+            lag=lag
+        )
+        return xr.corr(da1, lagged, dim=dim)
+    elif isinstance(lag, (np.int_, int)):
+        correlated = corr(da1, da2, lag=[lag], dim=dim)
+        return correlated.sel(lag=lag, drop=True)
+
+
+@apply_to_dataset
+def auto_corr(da, lag, dim="time"):
+    """
+    Calculate the autocorrelation of a xarray.DataArray object.
+
+    Parameters
+    ----------
+    da: xr.DataArray
+        The data array
+    lag: int
+        The lag applied to the data array. Will range from negative
+        to positive of this value
+    dim: str
+        The name of the time dimension
+
+    Returns
+    -------
+    xr.DataArray
+        The autocorrelation of the data array
+    """
+    assert isinstance(lag, int), "lag must be an integer"
+    lags = np.arange(-lag, lag + 1, 1).astype(int)
+    correlated = corr(da, da, lag=lags, dim=dim)
+    return correlated
 
 
 def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
@@ -270,6 +340,7 @@ def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
     return fit
 
 
+@apply_to_dataset
 def time_of_emergence_stdev(
     da, deseasonalise=True, noise_multiplier=2, detrend_poly_order=1, dim="time"
 ):
