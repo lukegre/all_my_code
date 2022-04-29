@@ -284,6 +284,20 @@ def make_xarray_accessor(
         register_dataset_accessor(class_name_snake)(Accessor)
 
 
+def apply_to_dataset(func):
+    from functools import wraps
+    from xarray import DataArray
+
+    @wraps(func)
+    def wrapper(ds, *args, **kwargs):
+        if isinstance(ds, DataArray):
+            return func(ds, *args, **kwargs)
+        else:
+            return ds.map(func, args=args, **kwargs)
+
+    return wrapper
+
+
 def append_attr(ds, msg, key="history", add_meta=True, old=None, func=None):
     from pandas import Timestamp
     import inspect
