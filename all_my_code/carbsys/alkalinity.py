@@ -1,4 +1,5 @@
 from ..utils import xarray_dataset_to_column_input as _xarray_dataset_to_column_input
+import pandas as pd
 
 
 @_xarray_dataset_to_column_input
@@ -200,8 +201,96 @@ def calc_lee2006(lat, lon, temp, salt, return_regions=False):
     return yhat
 
 
+def fetch_esper_data_as_xarray(lir_var, eq_case):
+    """
+    Get the data from the remote LIAR3 database
+
+    Parameters
+    ----------
+    eq_case : str
+        Loads the equation case from the LIAR3 database
+
+    Returns
+    -------
+    xr.DataArray
+        Coefficients for the equation case
+    """
+    from numpy import c_ as concat
+    from pooch import retrieve
+    from scipy.io import loadmat
+    from pathlib import Path as posixpath
+    from xarray import open_dataarray
+
+    path = posixpath("~/Data/cached/")
+    url = f"https://github.com/BRCScienceProducts/ESPER/raw/main/ESPER_LIR_Files/LIR_files_{lir_var}_v3.mat"  # noqa
+    name = posixpath(url).name
+
+    # first we check if the processed coefficients are on disk
+    sname = path.expanduser() / name.replace(".mat", f"_eq{eq_case:02d}.nc")
+    if sname.is_file():
+        print(f"loading exising coefs for eq. {eq_case}: {sname}")
+        return open_dataarray(sname)
+    # if not, then we download the file and process
+    else:
+        fname = retrieve(str(url), None, fname=name, path=path, progressbar=True)
+
+    # open the mat file
+    lirs = loadmat(fname)
+    grid = lirs["GridCoords"][:, :3]
+    coefs = lirs["Cs"][:, :, eq_case - 1]
+
+    data = concat[grid, coefs]
+    # these names are consistent with the input names
+    # and allows us to not mix up columns since we
+    # use names instead :) the order is important
+    names = [
+        "lon",
+        "lat",
+        "depth",
+        "0",
+        "sal",
+        "temp",
+        "nitrate",
+        "oxygen",
+        "silicate",
+    ]
+
+    # coords in ESPER are in longitude, latitude, depth order
+    df = pd.DataFrame(data, columns=names).set_index(["lon", "lat", "depth"])
+
+    # now we create an xarray array
+    coefs = (
+        df.to_xarray()
+        .transpose("depth", "lat", "lon")
+        .to_array(name="esper_liar3", dim="coef")
+        # filling gaps of the coarse data with nearest neighbour
+        .interpolate_na(dim="lon", method="nearest")
+        # backfilling for edge case scenarios
+        .ffill("lon")
+    )
+
+    # drop coefs that are all nans
+    keep = coefs.notnull().any(["lat", "lon", "depth"])
+    coefs = coefs.where(keep).dropna(dim="coef", how="all")
+
+    # save the coefs to speed up processing
+    coefs_ds = coefs.to_dataset()
+    encoding = {k: {"zlib": True} for k in coefs_ds.data_vars}
+    coefs_ds.to_netcdf(sname, encoding=encoding)
+
+    return coefs
+
+
 def esper_liar(
-    depth, lat, lon, sal=None, temp=None, nitrate=None, oxygen=None, silicate=None
+    output_var="TA",
+    depth=None,
+    lat=None,
+    lon=None,
+    sal=None,
+    temp=None,
+    nitrate=None,
+    oxygen=None,
+    silicate=None,
 ):
     """
     Calculates total alkalinity using locally interpolated linear regressions
@@ -235,84 +324,36 @@ def esper_liar(
     from numpy import array, zeros, c_
     from scipy.interpolate import RegularGridInterpolator as grid_interp
 
-    def fetch_esper_data_as_xarray(eq_case):
-        """
-        Get the data from the remote LIAR3 database
+    """
+    TODO: Other input variables based on the table below
 
-        Parameters
-        ----------
-        eq_case : str
-            Loads the equation case from the LIAR3 database
+    DesiredVar   | A             B             C
+    _____________|_____________________________________
+    TA           | Nitrate       Oxygen        Silicate
+    DIC          | Nitrate       Oxygen        Silicate
+    pH           | Nitrate       Oxygen        Silicate
+    phosphate    | Nitrate       Oxygen        Silicate
+    nitrate      | Phosphate     Oxygen        Silicate
+    silicate     | Phosphate     Oxygen        Nitrate
+    O2           | Phosphate     Nitrate       Silicate
 
-        Returns
-        -------
-        xr.DataArray
-            Coefficients for the equation case
-        """
-        from numpy import c_ as concat
-        from pooch import retrieve
-        from scipy.io import loadmat
-        from pathlib import Path as posixpath
-        from xarray import open_dataarray
+    I will try to stick with using variable names rather than
+    using the ABC notation as this is less clear. However, this
+    might be tricky for loading the LIR data.
 
-        path = posixpath("~/Data/cached/")
-        url = "https://github.com/BRCScienceProducts/ESPER/raw/main/ESPER_LIR_Files/LIR_files_TA_v3.mat"  # noqa
-        name = posixpath(url).name
+    req_all = ["depth", "lat", "lon", "sal", "temp"]
+    requirements = {
+        "TA": req_all + ["nitrate", "oxygen", "silicate"],
+        "DIC": req_all + ["nitrate", "oxygen", "silicate"],
+        "pH": req_all + ["nitrate", "oxygen", "silicate"],
+        "phosphate": req_all + ["nitrate", "oxygen", "silicate"],
+        "nitrate": req_all + ["phosphate", "oxygen", "silicate"],
+        "silicate": req_all + ["phosphate", "oxygen", "nitrate"],
+        "oxygen": req_all + ["phosphate", "nitrate", "silicate"],
+    }
 
-        # first we check if the processed coefficients are on disk
-        sname = path.expanduser() / name.replace(".mat", f"_eq{eq_case:02d}.nc")
-        if sname.is_file():
-            print(f"loading exising coefs for eq. {eq_case}: {sname}")
-            return open_dataarray(sname)
-        # if not, then we download the file and process
-        else:
-            fname = retrieve(str(url), None, fname=name, path=path, progressbar=True)
 
-        # open the mat file
-        lirs = loadmat(fname)
-        grid = lirs["GridCoords"][:, :3]
-        coefs = lirs["Cs"][:, :, eq_case - 1]
-
-        data = concat[grid, coefs]
-        # these names are consistent with the input names
-        # and allows us to not mix up columns since we
-        # use names instead :) the order is important
-        names = [
-            "lon",
-            "lat",
-            "depth",
-            "0",
-            "sal",
-            "temp",
-            "nitrate",
-            "oxygen",
-            "silicate",
-        ]
-
-        # coords in ESPER are in longitude, latitude, depth order
-        df = pd.DataFrame(data, columns=names).set_index(["lon", "lat", "depth"])
-
-        # now we create an xarray array
-        coefs = (
-            df.to_xarray()
-            .transpose("depth", "lat", "lon")
-            .to_array(name="esper_liar3", dim="coef")
-            # filling gaps of the coarse data with nearest neighbour
-            .interpolate_na(dim="lon", method="nearest")
-            # backfilling for edge case scenarios
-            .ffill("lon")
-        )
-
-        # drop coefs that are all nans
-        keep = coefs.notnull().any(["lat", "lon", "depth"])
-        coefs = coefs.where(keep).dropna(dim="coef", how="all")
-
-        # save the coefs to speed up processing
-        coefs_ds = coefs.to_dataset()
-        encoding = {k: {"zlib": True} for k in coefs_ds.data_vars}
-        coefs_ds.to_netcdf(sname, encoding=encoding)
-
-        return coefs
+    """
 
     if sal is None:
         raise ValueError("salinity is required")
@@ -372,13 +413,13 @@ def esper_liar(
     coords = DataFrame(array([depth, lat, lon360]).T, columns=["depth", "lat", "lon"])
 
     # downloads the coefficients from the remote database
-    coefs = fetch_esper_data_as_xarray(eq)
+    coefs = fetch_esper_data_as_xarray(output_var, eq)
 
     # create an empty output array
     yhat = pd.Series(
         zeros(preds.shape[0]),  # same shape as the input
         index=[depth, lat, lon],  # note we use the original lon not lon360
-        name="alkalinity_esper",
+        name=f"{output_var}_esper",
         dtype="float32",
     )
     # loop through each coeffcient and multiply it by the predictor
