@@ -2,7 +2,7 @@ from tempfile import gettempdir
 from ..munging.grid import _make_like_array
 
 
-def fay_any_mckinley_2014_biomes(resolution=1):
+def fay_any_mckinley_2014_biomes(resolution=1, save_dir=gettempdir()):
     """
     Download the Fay and McKinley (2014) biomes and conform
 
@@ -11,12 +11,13 @@ def fay_any_mckinley_2014_biomes(resolution=1):
     """
     from xarray import open_dataset, merge
     from pandas import DataFrame
-    from fsspec import open
+    from ..files.download import download_file
     import numpy as np
 
     url = "https://epic.awi.de/id/eprint/34786/19/Time_Varying_Biomes.nc"
-    file_obj = open(url).open()
-    fm14 = open_dataset(file_obj).conform(rename_vars_snake_case=True)
+
+    fname = download_file(url, path=save_dir, progress=True)
+    fm14 = open_dataset(fname).conform(rename_vars_snake_case=True)
 
     fm14 = fm14.assign_attrs(
         source=url,
@@ -66,16 +67,16 @@ def fay_any_mckinley_2014_biomes(resolution=1):
         return ds
 
 
-def reccap2_regions(resolution=1):
+def reccap2_regions(resolution=1, save_dir=gettempdir()):
     import xarray as xr
-    import fsspec
+    from ..files.download import download_file
 
     url = (
         "https://github.com/RECCAP2-ocean/R2-shared-resources/raw"
         "/master/data/regions/RECCAP2_region_masks_all_v20210412.nc"
     )
-    ds = xr.open_dataset(fsspec.open(url).open())
-
+    fname = download_file(url, path=save_dir, progress=True)
+    ds = xr.open_dataset(fname)
     ds = ds.conform(
         correct_coord_names=False, drop_0d_coords=False, transpose_dims=False
     )
@@ -310,7 +311,6 @@ def make_pco2_seasonal_mask(pco2, res=1, eq_lat=10, high_lat=65):
     mask : xr.DataArray
         Boolean mask for the given pCO2 seasonal cycle.
     """
-    from ..analyse.seasonal_cycle import fit_seasonal_cycle_wnt_smr
     from xarray import concat
 
     mask1 = _make_zonal_mask(1, 20, high_lat)
@@ -318,7 +318,7 @@ def make_pco2_seasonal_mask(pco2, res=1, eq_lat=10, high_lat=65):
 
     hem_flip = hemisphere_sign(res)
 
-    seascyl = fit_seasonal_cycle_wnt_smr(pco2)
+    seascyl = pco2.stats.seascycl_fit_climatology().jja_minus_djf
     jfm = seascyl.sel(month=[12, 1, 2]).mean("month")  # JFM
     jas = seascyl.sel(month=[6, 7, 8]).mean("month")  # JAS
     diff = (jfm - jas) * hem_flip

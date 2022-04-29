@@ -284,7 +284,7 @@ def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
 
     if x is not None:
         if isinstance(x, DataArray):
-            xx = x.munging.drop_0d_coords().dropna(dim)
+            xx = x.conform.drop_0d_coords().dropna(dim, how="all")
             xname = x.name
         else:
             xx = DataArray(data=x, dims=[dim], coords={dim: y[dim]})

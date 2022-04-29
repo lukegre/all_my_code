@@ -118,13 +118,13 @@ class _amc_Data:
     def fay_any_mckinley_2014_biomes(self):
         from .masks import fay_any_mckinley_2014_biomes as func
 
-        return func(resolution=self.res).load()
+        return func(resolution=self.res, save_dir=self.download_dest).load()
 
     @_cached_property
     def reccap2_regions(self):
         from .masks import reccap2_regions as func
 
-        return func(resolution=self.res).load()
+        return func(resolution=self.res, save_dir=self.download_dest).load()
 
     @_cached_property
     def seafrac(self):
