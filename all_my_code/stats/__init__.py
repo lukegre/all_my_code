@@ -8,6 +8,7 @@ from ..utils import make_xarray_accessor as _make_xarray_accessor
 
 _func_registry = [
     time_series.linregress,
+    time_series.polyfit,
     time_series.slope,
     time_series.climatology,
     time_series.deseasonalise,

@@ -3,6 +3,18 @@ import numpy as np
 from ..utils import apply_to_dataset
 
 
+def _polyfit(da, **kwargs):
+    """
+    Calculate the polynomial fit of a time series without showing
+    the RankWarning that often occurs when using polyfit
+    """
+    from warnings import catch_warnings, filterwarnings
+
+    with catch_warnings():
+        filterwarnings("ignore")
+        return da.polyfit(**kwargs)
+
+
 @apply_to_dataset
 def slope(da, dim="time"):
     """
@@ -20,14 +32,10 @@ def slope(da, dim="time"):
     xr.DataArray
         the slope of the data
     """
-    from warnings import filterwarnings
-
-    filterwarnings("ignore", message=".*poorly conditioned.*")
-
     # assign the dimension as step from 1 to the length of the dimension
     da = da.assign_coords(**{dim: np.arange(da[dim].size)})
     slope = (
-        da.polyfit(dim, 1, skipna=True)
+        _polyfit(da, deg=1, dim=dim, skipna=True)
         .polyfit_coefficients[0]
         .drop("degree")
         .assign_attrs(units=f"units/{dim}_step")
@@ -125,7 +133,7 @@ def trend(da, dim="time", deg=1, coef=None):
     """
 
     if coef is None:
-        coef = da.polyfit(dim=dim, deg=deg).polyfit_coefficients
+        coef = _polyfit(da, deg=deg, dim=dim).polyfit_coefficients
 
     # use the coeficients to predict along the dimension
     trend = xr.polyval(da[dim], coef)
@@ -237,7 +245,7 @@ def auto_corr(da, lag, dim="time"):
     return correlated
 
 
-def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
+def polyfit(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
     """
     Full linear regression with all stats (coefs, r2, pvalue, rmse, +)
 
@@ -259,7 +267,7 @@ def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
 
     Returns
     -------
-    linregress : xr.DataArray
+    polyfit : xr.DataArray
         the linear regression results containing coefficients,
         rsquared, pvalue, and rmse
     """
@@ -271,7 +279,7 @@ def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
 
         inputs = [y[k].rename(k) for k in y]
         outputs = run_parallel(
-            linregress,
+            polyfit,
             inputs,
             kwargs=dict(dim=dim, deg=deg, full=full, drop_polyfit_name=False),
             verbose=True,
@@ -304,7 +312,7 @@ def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
         yy = y
 
     # calculate polyfit
-    fit = yy.polyfit(dim, deg, full=full)
+    fit = _polyfit(yy, dim=dim, deg=deg, full=full)
 
     if not full:
         return fit
@@ -338,6 +346,49 @@ def linregress(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
     )
 
     return fit
+
+
+@apply_to_dataset
+def linregress(y, x=None, dim="time"):
+    """
+    Calculate the linear regression between two xarray.DataArray objects.
+
+    Parameters
+    ----------
+    y : xarray.DataArray
+        The dependent variable.
+    x : xarray.DataArray, optional
+        The independent variable. If not provided, the function will
+        calculate the linear regression between the time dimension of
+        y and the time dimension of y.
+    dim : str, optional
+        The dimension along which to calculate the linear regression.
+
+    Returns
+    -------
+    xarray.DataArray
+        The linear regression coefficient, intercept, and r-value.
+    """
+    from xskillscore import pearson_r, linslope, pearson_r_p_value, rmse, r2, mape
+
+    if x is None:
+        x = xr.DataArray(np.arange(y[dim].size), dims=dim, coords={dim: y[dim]})
+
+    ds = xr.Dataset()
+    ds["x"] = x
+    ds["y"] = y
+    ds["rvalue"] = pearson_r(x, y, dim="time")
+    ds["slope"] = linslope(x, y, dim="time")
+    ds["intercept"] = y.mean(dim="time") - ds.slope * x.mean(dim="time")
+    ds["yhat"] = x * ds.slope + ds.intercept
+    # the following all need yhat as input
+    ds["r2"] = r2(y, ds.yhat, dim="time")
+    ds["rmse"] = rmse(y, ds.yhat, dim="time")
+    ds["pvalue"] = pearson_r_p_value(y, ds.yhat, dim="time")
+    ds["mape"] = mape(y, ds.yhat, dim="time") * 100
+
+    order = "x y yhat slope intercept rvalue r2 pvalue rmse mape".split()
+    return ds[order]
 
 
 @apply_to_dataset
