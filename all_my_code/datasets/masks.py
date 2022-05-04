@@ -371,3 +371,41 @@ def _make_zonal_mask(res, min_lat, max_lat):
     mask = mask.fillna(0).astype(bool)
 
     return mask
+
+
+def basins_sans_southern_ocean(resolution=1):
+    """
+    Make a basin mask that includes Atlantic, Pacific, Indian,
+    and Arctic basins. The first three extend southward all the
+    way to the Antarctic.
+
+    Parameters
+    ----------
+    resolution : float
+        Resolution of the output resolution in degrees
+
+    Returns
+    -------
+    xarray.DataArray
+        Intiger mask ranging from 0 - 4 with the following basins:
+        0 = land / marginal seas
+        1 = Atlantic (-70 : 20)
+        2 = Pacific (145 : -70)
+        3 = Indian (20 : 145)
+        4 = Arctic (as defined in RECCAP2)
+
+    Note
+    ----
+    Uses the reccap2 open_ocean mask as a base mask
+    """
+    mask = reccap2_regions.open_ocean(resolution=resolution)
+
+    atlantic = (mask & ((mask.lon > -70) & (mask.lon < 20))) | (mask == 1)
+    pacific = ((mask & ((mask.lon < -70) | (mask.lon > 145))) | (mask == 2)) & (
+        mask != 1
+    )
+    indian = mask & ((mask.lon > 20) & (mask.lon < 145)) & (~mask.isin([1, 2]))
+    arctic = mask == 4
+
+    mask_sans_so = (atlantic * 1) + (pacific * 2) + (indian * 3) + (arctic * 4)
+    return mask_sans_so

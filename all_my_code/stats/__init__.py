@@ -1,5 +1,6 @@
 from . import spatial
 from . import time_series
+from . import outliers
 from . import smoothen
 from . import forecast
 from . import seas_cycle
@@ -20,6 +21,8 @@ _func_registry = [
     time_series.auto_corr,
     seas_cycle.seascycl_fit_graven,
     seas_cycle.seascycl_fit_climatology,
+    outliers.mask_outliers_iqr,
+    outliers.mask_outliers_std,
     smoothen.lowess,
     smoothen.smooth_monthly,
     time_series.anom,
