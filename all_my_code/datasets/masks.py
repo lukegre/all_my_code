@@ -373,7 +373,7 @@ def _make_zonal_mask(res, min_lat, max_lat):
     return mask
 
 
-def basins_sans_southern_ocean(resolution=1):
+def basins_sans_southern_ocean(resolution=1, save_dir=gettempdir()):
     """
     Make a basin mask that includes Atlantic, Pacific, Indian,
     and Arctic basins. The first three extend southward all the
@@ -383,6 +383,9 @@ def basins_sans_southern_ocean(resolution=1):
     ----------
     resolution : float
         Resolution of the output resolution in degrees
+    save_dir : str
+        Path to the directory where the data should be stored. Default
+        is the system's temporary directory.
 
     Returns
     -------
@@ -398,7 +401,7 @@ def basins_sans_southern_ocean(resolution=1):
     ----
     Uses the reccap2 open_ocean mask as a base mask
     """
-    mask = reccap2_regions.open_ocean(resolution=resolution)
+    mask = reccap2_regions.open_ocean(resolution=resolution, save_dir=save_dir)
 
     atlantic = (mask & ((mask.lon > -70) & (mask.lon < 20))) | (mask == 1)
     pacific = ((mask & ((mask.lon < -70) | (mask.lon > 145))) | (mask == 2)) & (

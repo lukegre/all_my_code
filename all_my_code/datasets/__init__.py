@@ -139,6 +139,12 @@ class _amc_Data:
         return func(resolution=self.res, save_dir=self.download_dest)
 
     @_cached_property
+    def basin_mask_sans_southern(self):
+        from .masks import basins_sans_southern_ocean as func
+
+        return func(resolution=self.res, save_dir=self.download_dest)
+
+    @_cached_property
     def ar6_regions(self):
         from .masks import ar6_regions as func
 
