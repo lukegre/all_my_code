@@ -21,6 +21,7 @@ _func_registry = [
     seas_cycle.seascycl_fit_graven,
     seas_cycle.seascycl_fit_climatology,
     smoothen.lowess,
+    smoothen.smooth_monthly,
     time_series.anom,
 ]
 

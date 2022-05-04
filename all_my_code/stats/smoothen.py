@@ -1,4 +1,10 @@
+"""
+Experimental functions to smooth DataArrays
+Most only work if the data is 1-dimensional
+
+"""
 import numpy as np
+from ..utils import apply_to_dataset
 
 
 def _interp_xarray_with_scipy_interp(
@@ -34,7 +40,7 @@ def _interp_xarray_with_scipy_interp(
     return predicted
 
 
-def spline(da, degree=2, dim="time", lengthening_factor=10, **spline_kwargs):
+def spline(da, degree=2, dim="time", lengthening_factor=1, **spline_kwargs):
     """
     A wrapper around scipy.interpolate.make_interp_spline to
     quickly create a smooth spline from a single dimension data.
@@ -72,7 +78,7 @@ def spline(da, degree=2, dim="time", lengthening_factor=10, **spline_kwargs):
         make_interp_spline,
         dim=dim,
         lengthening_factor=lengthening_factor,
-        **spline_kwargs
+        **spline_kwargs,
     )
 
     smooth = smooth.assign_attrs(da.attrs)
@@ -81,7 +87,7 @@ def spline(da, degree=2, dim="time", lengthening_factor=10, **spline_kwargs):
 
 
 def rolling_ewm(
-    da, radius=0.5, fill_tail=True, lengthening_factor=10, dim="time", **interp1d_kwargs
+    da, radius=0.5, fill_tail=True, lengthening_factor=1, dim="time", **interp1d_kwargs
 ):
     """
     Smoothens off the corners of a line.
@@ -143,6 +149,7 @@ def rolling_ewm(
     return shifted
 
 
+@apply_to_dataset
 def lowess(da, dim="time", frac=0.1, **kwargs):
     """
     Apply a LOWESS smoothing along one dimension
@@ -166,18 +173,39 @@ def lowess(da, dim="time", frac=0.1, **kwargs):
 
     kwargs.update(frac=frac)
     lowess_1d = lambda y, x: sm.nonparametric.lowess(y, x, **kwargs).T[1]
-    if isinstance(da, xr.DataArray):
-        res = np.apply_along_axis(
-            lowess_1d, da.get_axis_num(dim), da.data, da[dim].astype("f4").data
-        )
-        return xr.DataArray(res, coords=da.coords, dims=da.dims)
-    elif isinstance(da, xr.Dataset):
-        return da.map(lowess_1d, keep_attrs=True, **kwargs)
-    else:
-        raise ValueError
+
+    res = np.apply_along_axis(
+        lowess_1d, da.get_axis_num(dim), da.data, da[dim].astype("f4").data
+    )
+    return xr.DataArray(res, coords=da.coords, dims=da.dims)
 
 
 def convolve(da, kernel=None, fill_nans=False, verbose=True):
+    """
+    Apply a convolution along lat and lon dimensions.
+
+    Note
+    ----
+    This function is superceded by da.rolling(lat=k, lon=k).mean()
+    for uniform kernels.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The input dataarray
+    kernel : numpy.ndarray
+        The convolution kernel from the astropy.convolution kernels
+    fill_nans : bool
+        If True, will fill the nans with the convolution result
+    verbose : bool
+        If True, will print progress
+
+    Returns
+    -------
+    xarray.DataArray
+        The convolved dataarray
+
+    """
     from astropy import convolution as conv
     from xarray import xr
 
@@ -225,3 +253,33 @@ def convolve(da, kernel=None, fill_nans=False, verbose=True):
         "astropy.convolution.convolve"
     ).format(da.name, kern_size[0], kern_size[1])
     return convolved
+
+
+@apply_to_dataset
+def smooth_monthly(da, **kwargs):
+    """
+    Applies a rolling mean and then rolling gaussian window
+
+    Parameters
+    ----------
+    da: xr.DataArray
+        The data array you want to smooth
+    **kwargs:
+        All other kwargs are passed to `da.rolling` and `da.rolling_exp`
+
+    Returns
+    -------
+    xr.DataArray
+        The smoothed data array
+    """
+    props = dict(center=True)
+    props.update(kwargs)
+
+    dims = list(da.dims)
+    keys = list(kwargs)
+    assert any([k in dims for k in keys]), f"Must have one keyword in dims [{dims}]"
+
+    a = da.rolling(**props).mean().where(lambda x: x != 0)
+    b = a.rolling_exp(**kwargs).mean()
+    c = b.dropna("time")
+    return c

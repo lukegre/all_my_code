@@ -47,11 +47,12 @@ def get_woa18(name, month=np.arange(1, 13), save_dir="~/Data/cached/", verbose=T
     save_dir = save_dir.format(name=name, abbrev=abbrev)
     sname = str(Path(save_dir).expanduser() / Path(url).name)
 
-    vprint("loading:", url)
     ds_list = []
+    vprint("loading:", sname)
     for m in month:
-        if Path(sname.format(m)).is_file():
-            ds_list += (xr.open_dataset(sname.format(m), chunks={"month": 1}),)
+        fname = sname.format(m)
+        if Path(fname).is_file():
+            ds_list += (xr.open_dataset(fname, chunks={"month": 1}),)
 
         else:
             vprint(m, end=" ")
