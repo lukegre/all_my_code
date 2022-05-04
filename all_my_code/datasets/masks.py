@@ -401,7 +401,7 @@ def basins_sans_southern_ocean(resolution=1, save_dir=gettempdir()):
     ----
     Uses the reccap2 open_ocean mask as a base mask
     """
-    mask = reccap2_regions.open_ocean(resolution=resolution, save_dir=save_dir)
+    mask = reccap2_regions(resolution=resolution, save_dir=save_dir).open_ocean
 
     atlantic = (mask & ((mask.lon > -70) & (mask.lon < 20))) | (mask == 1)
     pacific = ((mask & ((mask.lon < -70) | (mask.lon > 145))) | (mask == 2)) & (
