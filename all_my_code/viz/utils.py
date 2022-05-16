@@ -77,7 +77,7 @@ def get_line_from_label(ax, label_contains):
     return None
 
 
-def save_figures_to_pdf(fig_list, pdf_name, **savefig_kwargs):
+def save_figures_to_pdf(fig_list, pdf_name, return_figures=False, **savefig_kwargs):
     """
     Saves a list of figure objects to a pdf with multiple pages.
     Parameters
@@ -101,6 +101,9 @@ def save_figures_to_pdf(fig_list, pdf_name, **savefig_kwargs):
 
     for fig in fig_list:  # will open an empty extra figure :(
         pdf.savefig(fig, **kwargs)
-
     pdf.close()
-    plt.close("all")
+
+    if return_figures:
+        return fig_list
+    else:
+        plt.close("all")
