@@ -1,81 +1,80 @@
-def add_subplot_square(ax, w=0.05, h=None, loc='upper left', **bbox_props):
-    def get_aspect(ax):
-        from operator import sub
-        from mpl_toolkits.axes_grid1 import make_axes_locatable
-        # Total figure size
-        figW, figH = ax.get_figure().get_size_inches()
-        # Axis size on figure
-        _, _, w, h = make_axes_locatable(ax).get_position()
+def label_subplots(axes_list, labels=None, loc="upper left", lw=0, **kwargs):
+    """
+    Labels subplots in a list of axes.
 
-        # Ratio of display units
-        disp_ratio = (figH * h) / (figW * w)
-        # Ratio of data units
-        # Negative over negative because of the order of subtraction
-        data_ratio = sub(*ax.get_ylim()) / sub(*ax.get_xlim())
+    Parameters
+    ----------
+    axes_list : list
+        list of axes to label
+    labels : list   [optional]
+        list of labels to use. If not provided, will use the alphabet.
+    loc : str
+        location of labels same as ``plt.legend``
+    lw : int
+        line width of the box around the labels
+    kwargs : key-value pairs
+        passed to plt.AnchoredText
 
-        return disp_ratio
-    
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as patches
+    Returns
+    -------
+    Artists:
+        list of artists
+    """
+    from string import ascii_lowercase
+    from matplotlib.offsetbox import AnchoredText
 
-    aspect = get_aspect(ax)
-    
-    if h is None:
-        h = w / aspect 
-    else: 
-        h = h
-        
-    if loc == 'lower left':
-        y0 = 0
-        x0 = 0
-    elif loc == 'upper left':
-        y0 = 1 - h
-        x0 = 0
-    elif loc == 'lower right':
-        x0 = 1 - w
-        y0 = 0
-    elif loc == 'upper right':
-        x0 = 1 - w
-        y0 = 1 - h
+    if labels is None:
+        labels = ascii_lowercase
+
+    if lw == 0:
+        frameon = False
     else:
+        frameon = True
 
-        raise KeyError(
-            'loc must be one of the following combinations: '
-            'lower/upper, left/right')
-    
     props = dict(
-        linewidth=0, 
-        edgecolor='none', 
-        facecolor='k', 
-        transform=ax.transAxes,
-        zorder=10,
+        prop=dict(size=12, weight="bold"),
+        loc=loc,
+        frameon=frameon,
+        pad=0.4,
+        borderpad=0,
     )
-    props.update(bbox_props)
-    rect = patches.Rectangle(
-        (x0, y0), w, h, **props)
+    props.update(kwargs)
 
-    ax.add_patch(rect)
-    
-    return x0 + w/2, y0 + h/2
+    height = props.pop("height", 0.5)
+    width = props.pop("width", height)  # noqa: F841
+
+    artists = []
+    for ax, lbl in zip(axes_list, labels):
+        at = AnchoredText(lbl, **props)
+        at.patch.set_lw(lw)
+        artists += (ax.add_artist(at),)
+
+    return artists
 
 
-def corner_text(ax, text, square_width=0.05, loc='upper left', bbox_props={'facecolor': 'k'}, **text_props):
-    x, y = add_subplot_square(ax, w=square_width, loc=loc, **bbox_props)
-    
-    props = dict(
-        color='w' if bbox_props.get('facecolor', 'k') == 'k' else 'w',
-        size=11,
-        weight='bold',
-        zorder=11,
-        ha='center',
-        va='center',
-        transform=ax.transAxes,
-    )
-    props.update(text_props)
-    
-    ax.number = ax.text(x, y, text, **props)
-    
-    return ax
+def get_line_from_label(ax, label_contains):
+    """
+    Get a line object that has a label that contains the string
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to search
+    label_contains : str
+        The string to search for in the line labels
+
+    Returns
+    -------
+    line : matplotlib.lines.Line2D
+        The line object that has the label or None if not found
+    """
+
+    lines = ax.get_lines()
+    for line in lines:
+        label = line.get_label()
+        if label_contains in label:
+            return line
+    return None
 
 
 def save_figures_to_pdf(fig_list, pdf_name, **savefig_kwargs):
@@ -105,4 +104,3 @@ def save_figures_to_pdf(fig_list, pdf_name, **savefig_kwargs):
 
     pdf.close()
     plt.close("all")
-    
