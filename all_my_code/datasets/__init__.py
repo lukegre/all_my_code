@@ -97,6 +97,12 @@ class _amc_Data:
         return func()
 
     @_cached_property
+    def multivariate_enso_index(self):
+        from .climate_indicies import multivariate_enso_index as func
+
+        return func()
+
+    @_cached_property
     def pacific_decadal_oscillation(self):
         from .climate_indicies import pacific_decadal_oscillation as func
 

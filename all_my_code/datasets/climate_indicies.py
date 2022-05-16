@@ -108,6 +108,48 @@ def _southern_annular_mode_annual():
     return da
 
 
+def multivariate_enso_index():
+    df = pd.read_fwf(
+        "https://psl.noaa.gov/enso/mei/data/meiv2.data",
+        skiprows=[0, 45, 46, 47, 48],
+        names=["YEAR"] + list(range(1, 13)),
+        index_col=0,
+        dtype=float,
+        na_values=-999,
+    ).stack()
+
+    t0 = pd.Timestamp("1979-01-01")
+    t1 = pd.Timestamp.today()
+    date_range = pd.date_range(t0, t1, freq="MS")[: df.size]
+    da = (
+        df.set_axis(date_range)
+        .to_xarray()
+        .rename("multivariate_enso_index")
+        .rename(index="time")
+        .conform.time_center_monthly()
+    )
+    da = da.assign_attrs(
+        description=(
+            "The MEI, which combines both oceanic and atmospheric variables, "
+            "facilitates in a single index an assessment of ENSO. It especially "
+            "gives real-time indications of ENSO intensity, and through "
+            "historical analysis - provides a context for meaningful "
+            "comparative study of evolving conditions."
+        ),
+        source="https://psl.noaa.gov/enso/mei/data/meiv2.data",
+        website="https://psl.noaa.gov/enso/mei/",
+        doi="https://doi.org/10.1002/joc.2336",
+        citation=(
+            "Wolter, K., and M. S. Timlin, 2011: El Niño/Southern Oscillation "
+            "behaviour since 1871 as diagnosed in an extended multivariate ENSO "
+            "index (MEI.ext). Intl. J. Climatology, 31, 14pp., 1074-1087. "
+            "DOI: 10.1002/joc.2336."
+        ),
+    )
+
+    return da
+
+
 def ocean_nino_index():
     """Download the Ocean Nini Index data from the NOAA website."""
 
