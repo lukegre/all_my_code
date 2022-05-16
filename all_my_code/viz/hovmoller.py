@@ -2,9 +2,8 @@ def make_zonal_anomaly_plot_data(da):
     da_zon_mean = da.mean("lon").dropna("lat", how="all")
     lat_avg = da_zon_mean.mean("time")
     da_zon_anom = da_zon_mean - lat_avg
-    da_zon_anom_an = da_zon_anom.resample(time="1AS").mean().T
 
-    return lat_avg, da_zon_anom_an
+    return lat_avg, da_zon_anom
 
 
 def plot_zonal_anom(da, ax=None, lw=0.5, **kwargs):
