@@ -87,9 +87,7 @@ def plot_zonal_anom_with_trends(da, ax=None, lw=0.5, **kwargs):
     assert len(ax) == 3, "ax must be three axes"
 
     lat_avg, hovmol_data = make_zonal_anomaly_plot_data(da)
-    lat_trend = hovmol_data.stats.slope(dim="time").smooth.rolling_ewm(
-        dim="lat", radius=2
-    )
+    lat_trend = hovmol_data.stats.slope(dim="time").rolling(lat=3, center=True).mean()
 
     # the zonal anomaly function takes the first two axes objects as input
     # and we create the third plot manually form the lat_trend data
