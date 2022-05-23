@@ -14,6 +14,9 @@ def label_subplots(axes_list, labels=None, loc="upper left", lw=0, **kwargs):
         line width of the box around the labels
     kwargs : key-value pairs
         passed to plt.AnchoredText
+        For a white box behind the number use
+        prop=dict(backgroundcolor="w", size=12, weight="bold")
+
 
     Returns
     -------

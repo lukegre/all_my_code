@@ -420,3 +420,27 @@ def _make_like_array(resolution):
     )
 
     return grids
+
+
+def estimate_grid_spacing(coord):
+    """
+    Estimate the grid spacing from a coordinate
+
+    Parameters
+    ----------
+    coord: xr.DataArray
+        coordinate
+
+    Returns
+    -------
+    float
+        grid spacing
+    """
+    import numpy as np
+
+    delta_x = np.diff(coord.values)
+    delta_x_u = np.unique(delta_x)
+    if len(delta_x_u) > 1:
+        return np.median(delta_x)
+    elif len(delta_x_u) == 1:
+        return delta_x_u[0]
