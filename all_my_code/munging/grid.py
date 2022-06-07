@@ -218,11 +218,14 @@ def regrid(
 
     try:
         regridder = xe.Regridder(ds, like, method, **props)
-    except ValueError:
-        raise ValueError(
+    except ValueError as e:
+        raise e(
             "invalid entry in coordinates array. "
             "Weights file may not match the desired resolution"
         )
+
+    if not file_exist:
+        weights_to_netcdf(regridder, weights_path)
 
     if not file_exist:
         weights_to_netcdf(regridder, weights_path)
