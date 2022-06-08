@@ -160,9 +160,7 @@ def get_flist_from_url(
     return sorted(flist)
 
 
-def download_url_tree(
-    url, path=".", username=None, password=None, cache_name=".listing", **kwargs
-):
+def download_url_tree(url, path=".", username=None, password=None, **kwargs):
     """
     Download a tree of files from a url.
     """
@@ -177,7 +175,9 @@ def download_url_tree(
         flist = []
         for url in url_list:
             flist += (
-                download_file(url, path=path, username=username, password=password),
+                download_file(
+                    url, path=path, username=username, password=password, **kwargs
+                ),
             )
     except KeyboardInterrupt:
         print("\nDownloading interrupted by user. Returning partial results.")
