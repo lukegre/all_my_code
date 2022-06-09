@@ -29,17 +29,17 @@ def change_file_permissions(path, permission=774):
     perm = int(str(permission), base=8)
 
     if isinstance(path, str):
-        for root, dirs, files in os.walk(path):
-            [os.chmod(f, perm) for f in dirs]
-            [os.chmod(f, perm) for f in files]
+        if os.path.isfile(path):
+            os.chmod(path, perm)
+        else:
+            for root, dirs, files in os.walk(path):
+                [os.chmod(os.path.join(root, f), perm) for f in dirs]
+                [os.chmod(os.path.join(root, f), perm) for f in files]
     elif isinstance(path, (list, tuple, ndarray)):
         for f in path:
-            try:
-                f = posixpath(f)
-                f.chmod(perm)
-                f.parent.chmod(perm)
-            except:
-                pass
+            f = posixpath(f)
+            f.chmod(perm)
+            f.parent.chmod(perm)
 
 
 def get_fnames_recursive_search(basedir, include=[], exclude=[]):
