@@ -58,16 +58,17 @@ def download_file(
 
     path = str(posixpath(path).expanduser().resolve())
 
+    downloader = kwargs.get("downloader", None)
+    if downloader is None:
+        downloader = pooch.downloaders.choose_downloader(url)
+    if hasattr(downloader, "username") and username is not None:
+        downloader.username = username
+    if hasattr(downloader, "password") and password is not None:
+        downloader.password = password
     if progress:
-        downloader = kwargs.get("downloader", None)
-        if downloader is None:
-            downloader = pooch.downloaders.choose_downloader(url)
         downloader.progressbar = True
-        if hasattr(downloader, "username") and username is not None:
-            downloader.username = username
-        if hasattr(downloader, "password") and password is not None:
-            downloader.password = password
-        kwargs["downloader"] = downloader
+
+    kwargs["downloader"] = downloader
 
     if decompress:
         decompressor = kwargs.get("processor", None)
@@ -83,8 +84,9 @@ def download_file(
     props.update(kwargs)
 
     # here we do the actual downloading
-    if progress:
-        logger.log(25, fname)
+    fpath = posixpath(path).joinpath(fname)
+    if not fpath.is_file() and progress:
+        logger.log(25, path)
     flist = pooch.retrieve(url, None, **props)
 
     change_file_permissions(flist, premission)
