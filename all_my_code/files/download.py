@@ -2,11 +2,11 @@ def download_file(
     url,
     path=".",
     fname=None,
-    progress=True,
     decompress=True,
     premission=774,
     username=None,
     password=None,
+    log_level=2,
     **kwargs,
 ):
     """
@@ -24,9 +24,6 @@ def download_file(
     name: str | None
         By default [None], will get the file name from the url, or can be
         set to a string.
-    progress: bool [True]
-        Show a progress bar for downloading without having to specify the
-        downloader.
     decompress: bool [True]
         if the file name contains an extension that is a known compressed
         format, the file will automatically be decompressed and the
@@ -36,6 +33,17 @@ def download_file(
         Must be three integer values for the file permissions - see chmod
         Does not accept four digit octal values.
         Note that permissions will be changed even if the files already exist.
+    username: str | None
+        if required for given url and protocol (e.g. FTP)
+    password: str | None
+        if required for given url and protocol (e.g. FTP)
+    log_level: int [25]
+        the level of logging to use. Set to level
+            0 = hide all logging
+            1 = show file names that do not exist
+            2 = show progress bar of files that do not exist
+            3 = show progress bar and all files
+            4 = show all logging - including pooch
     **kwargs: key-value
         any standard inputs of pooch
 
@@ -49,26 +57,24 @@ def download_file(
     from .utils import change_file_permissions
     from pathlib import Path as posixpath
     import pooch
+    import logging
+    import sys
 
+    log_level = 24 - log_level
     logger = pooch.get_logger()
-    logger.setLevel(25)
+    while len(logger.handlers) > 0:
+        logger.removeHandler(logger.handlers[0])
+
+    formatter = logging.Formatter("log-%(name)s | %(message)s")
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(formatter)
+    handler.setLevel(log_level)
+    logger.addHandler(handler)
 
     if fname is None:
         fname = posixpath(url).name
 
     path = str(posixpath(path).expanduser().resolve())
-
-    downloader = kwargs.get("downloader", None)
-    if downloader is None:
-        downloader = pooch.downloaders.choose_downloader(url)
-    if hasattr(downloader, "username") and username is not None:
-        downloader.username = username
-    if hasattr(downloader, "password") and password is not None:
-        downloader.password = password
-    if progress:
-        downloader.progressbar = True
-
-    kwargs["downloader"] = downloader
 
     if decompress:
         decompressor = kwargs.get("processor", None)
@@ -80,13 +86,29 @@ def download_file(
             elif (".gz" in url) or (".bz2" in url) or (".xz" in url):
                 kwargs["processor"] = pooch.processors.Decompress()
 
+    downloader = kwargs.get("downloader", None)
+    if downloader is None:
+        downloader = pooch.downloaders.choose_downloader(url)
+    if hasattr(downloader, "username") and username is not None:
+        downloader.username = username
+    if hasattr(downloader, "password") and password is not None:
+        downloader.password = password
+
+    # show the progress bar if the log level <= 20
+    if log_level <= 22:
+        downloader.progressbar = True
+    kwargs["downloader"] = downloader
+
     props = dict(fname=fname, path=path)
     props.update(kwargs)
 
-    # here we do the actual downloading
     fpath = posixpath(path).joinpath(fname)
-    if not fpath.is_file() and progress:
-        logger.log(25, fname)
+    # if the file does not exist show if verbosity >= 25
+    if fpath.is_file():
+        logger.log(21, fname)
+    else:
+        logger.log(23, fname)
+    # here we do the actual downloading
     flist = pooch.retrieve(url, None, **props)
 
     change_file_permissions(flist, premission)
@@ -162,9 +184,20 @@ def get_flist_from_url(
     return sorted(flist)
 
 
-def download_url_tree(url, path=".", username=None, password=None, **kwargs):
+def download_url_tree(url, username=None, password=None, **kwargs):
     """
     Download a tree of files from a url.
+
+    Parameters
+    ----------
+    url : str
+        the url to download from
+    username : str | None
+        if required for given url and protocol (e.g. FTP)
+    password : str | None
+        if required for given url and protocol (e.g. FTP)
+    **kwargs: key-value
+        any standard inputs to `all_my_code.download_file`
     """
     import numpy as np
 
@@ -177,9 +210,7 @@ def download_url_tree(url, path=".", username=None, password=None, **kwargs):
         flist = []
         for url in url_list:
             flist += (
-                download_file(
-                    url, path=path, username=username, password=password, **kwargs
-                ),
+                download_file(url, username=username, password=password, **kwargs),
             )
     except KeyboardInterrupt:
         print("\nDownloading interrupted by user. Returning partial results.")
