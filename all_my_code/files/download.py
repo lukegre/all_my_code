@@ -86,7 +86,7 @@ def download_file(
     # here we do the actual downloading
     fpath = posixpath(path).joinpath(fname)
     if not fpath.is_file() and progress:
-        logger.log(25, path)
+        logger.log(25, fname)
     flist = pooch.retrieve(url, None, **props)
 
     change_file_permissions(flist, premission)
