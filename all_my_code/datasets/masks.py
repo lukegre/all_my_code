@@ -16,7 +16,7 @@ def fay_any_mckinley_2014_biomes(resolution=1, save_dir=gettempdir()):
 
     url = "https://epic.awi.de/id/eprint/34786/19/Time_Varying_Biomes.nc"
 
-    fname = download_file(url, path=save_dir, log_level=2)
+    fname = download_file(url, path=save_dir, verbosity=2)
     fm14 = open_dataset(fname).conform(rename_vars_snake_case=True)
 
     fm14 = fm14.assign_attrs(
@@ -75,7 +75,7 @@ def reccap2_regions(resolution=1, save_dir=gettempdir()):
         "https://github.com/RECCAP2-ocean/R2-shared-resources/raw"
         "/master/data/regions/RECCAP2_region_masks_all_v20210412.nc"
     )
-    fname = download_file(url, path=save_dir, log_level=2)
+    fname = download_file(url, path=save_dir, verbosity=2)
     ds = xr.open_dataset(fname)
     ds = ds.conform(
         correct_coord_names=False, drop_0d_coords=False, transpose_dims=False
