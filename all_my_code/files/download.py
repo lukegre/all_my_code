@@ -6,7 +6,7 @@ def download_file(
     premission=774,
     username=None,
     password=None,
-    log_level=2,
+    verbosity=2,
     **kwargs,
 ):
     """
@@ -37,7 +37,7 @@ def download_file(
         if required for given url and protocol (e.g. FTP)
     password: str | None
         if required for given url and protocol (e.g. FTP)
-    log_level: int [25]
+    verbosity: int [25]
         the level of logging to use. Set to level
             0 = hide all logging
             1 = show file names that do not exist
@@ -60,8 +60,13 @@ def download_file(
     import logging
     import sys
 
-    log_level = 24 - log_level
     logger = pooch.get_logger()
+
+    if "log_level" in kwargs:
+        logger.warning("log_level is deprecated. Use verbosity instead.")
+        verbosity = kwargs.pop("log_level", None)
+
+    log_level = 24 - verbosity
     while len(logger.handlers) > 0:
         logger.removeHandler(logger.handlers[0])
 
