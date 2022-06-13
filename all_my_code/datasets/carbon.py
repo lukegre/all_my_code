@@ -17,7 +17,7 @@ def socat_gridded(
     fpath = os.path.join(os.path.expanduser(save_dir), fname.replace(".zip", ""))
 
     if not os.path.exists(fpath):
-        dpath = download_file(url, save_dir, progress=True)
+        dpath = download_file(url, save_dir, verbosity=2)
         ds = xr.open_dataset(dpath).drop("tmnth_bnds")
         ds.to_netcdf_with_compression(fpath)
 
@@ -164,7 +164,7 @@ def seaflux(var_name="pco2atm", save_dir="~/Data/cached/"):
     elif isinstance(var_name, str):
         assert var_name in variables.keys(), msg
         url = variables[var_name]
-        fname = download_file(url, path=save_dir, progress=True)
+        fname = download_file(url, path=save_dir, verbosity=2)
         return xr.open_dataset(fname, chunks={}).conform()
 
 
