@@ -4,6 +4,7 @@ from . import outliers
 from . import smoothen
 from . import forecast
 from . import seas_cycle
+from . import distributions
 from ..utils import make_xarray_accessor as _make_xarray_accessor
 
 

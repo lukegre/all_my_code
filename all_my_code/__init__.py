@@ -25,11 +25,11 @@ except DistributionNotFound:
 del get_distribution, DistributionNotFound
 
 # setting up the logging
-logger = logging.Logger("amc", level=logging.WARNING)
+logger = logging.Logger("AMC", level=logging.WARNING)
 while len(logger.handlers) > 0:
     logger.removeHandler(logger.handlers[0])
 
-formatter = logging.Formatter("log-%(name)s | %(message)s")
+formatter = logging.Formatter("[%(name)s] %(message)s")
 handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(formatter)
 handler.setLevel(logging.WARNING)
