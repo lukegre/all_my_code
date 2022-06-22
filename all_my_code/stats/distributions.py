@@ -40,7 +40,7 @@ def fit_distribution(y, n_bins=80, dist_func=dist.norm, plot=False, metric="rmse
         return ax
 
 
-def find_best_distribution_fit(data):
+def find_best_distribution_fit(data, **kwargs):
     distributions = [
         f
         for f in dir(dist._continuous_distns)
@@ -52,8 +52,9 @@ def find_best_distribution_fit(data):
     results = {}
     for d in distributions:
         try:
-            func = getattr(dist, d)
-            results[d] = fit_distribution(data, dist_func=func, plot=0)
+            props = kwargs
+            props.update(dict(dist_func=getattr(dist, d), plot=0))
+            results[d] = fit_distribution(data, **props)
             print("", end=".")
         except KeyboardInterrupt:
             raise KeyboardInterrupt
@@ -64,10 +65,10 @@ def find_best_distribution_fit(data):
     return s
 
 
-def get_best_distributions_for_df(df):
+def get_best_distributions_for_df(df, **kwargs):
     results = {}
     for col in df:
         print(col, end="")
-        results[col] = find_best_distribution_fit(df[col])
+        results[col] = find_best_distribution_fit(df[col], **kwargs)
         print()
     return pd.DataFrame(results)
