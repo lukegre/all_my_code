@@ -76,7 +76,8 @@ def common_distributions():
         d.skewnorm,
         d.t,
         d.uniform,
-        d.weibull,
+        d.weibull_max,
+        d.weibull_min,
     ]
 
 
