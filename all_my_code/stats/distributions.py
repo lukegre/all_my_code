@@ -116,4 +116,4 @@ def get_best_distributions_for_df(df, **kwargs):
         print(col, end="")
         results[col] = find_best_distribution_fit(df[col], **kwargs)
         print()
-    return pd.DataFrame(results)
+    return results
