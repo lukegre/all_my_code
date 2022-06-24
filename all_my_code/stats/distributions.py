@@ -48,7 +48,10 @@ def list_all_scipy_distributions():
     ]
     distributions.remove("levy_stable")
     distributions.remove("studentized_range")
-    return distributions
+
+    dists = [getattr(dist, d) for d in distributions]
+
+    return dists
 
 
 def common_distributions():
@@ -88,9 +91,10 @@ def find_best_distribution_fit(data, distributions=common_distributions(), **kwa
     results = {}
     for d in distributions:
         try:
+            name = d.__class__.__name__.split("_")[0]
             props = kwargs
-            props.update(dict(dist_func=getattr(dist, d), plot=0))
-            results[d] = fit_distribution(data, **props)
+            props.update(dict(dist_func=d, plot=0))
+            results[name] = fit_distribution(data, **props)
             print("", end=".")
         except KeyboardInterrupt:
             raise KeyboardInterrupt
