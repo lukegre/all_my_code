@@ -40,7 +40,7 @@ def fit_distribution(y, n_bins=80, dist_func=dist.norm, plot=False, metric="rmse
         return ax
 
 
-def find_best_distribution_fit(data, **kwargs):
+def list_all_scipy_distributions():
     distributions = [
         f
         for f in dir(dist._continuous_distns)
@@ -48,6 +48,41 @@ def find_best_distribution_fit(data, **kwargs):
     ]
     distributions.remove("levy_stable")
     distributions.remove("studentized_range")
+    return distributions
+
+
+def common_distributions():
+    from scipy.stats import distributions as d
+
+    return [
+        d.alpha,
+        d.beta,
+        d.binom,
+        d.chi2,
+        d.expon,
+        d.f,
+        d.gamma,
+        d.geom,
+        d.hypergeom,
+        d.laplace,
+        d.logistic,
+        d.lognorm,
+        d.nbinom,
+        d.norm,
+        d.pareto,
+        d.poisson,
+        d.powerlaw,
+        d.rayleigh,
+        d.skewnorm,
+        d.t,
+        d.uniform,
+        d.weibull,
+    ]
+
+
+def find_best_distribution_fit(data, distributions=common_distributions(), **kwargs):
+    if distributions is None:
+        distributions = list_all_scipy_distributions()
 
     results = {}
     for d in distributions:
