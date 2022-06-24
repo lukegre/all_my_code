@@ -4,40 +4,43 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-def fit_distribution(y, n_bins=80, dist_func=dist.norm, plot=False, metric="rmse"):
+def get_distribution_fit(y, n_bins=80, dist_func=dist.norm, **fit_kwargs):
     import warnings
 
     warnings.filterwarnings("ignore", category=RuntimeWarning)
 
+    args = dist_func.fit(y, **fit_kwargs)
+    fitted_dist = dist_func(*args)
+
+    xbins = np.linspace(y.min(), y.max(), n_bins + 1)
+    x = np.convolve(xbins, [0.5, 0.5], mode="valid")
+    yhst = np.histogram(y, bins=xbins, density=True)[0]
+    yhat = fitted_dist.pdf(x)
+
+    resid = yhst - yhat
+    rmse = (resid**2).mean() ** 0.5
+
+    return dict(dist=fitted_dist, args=args, x=x, yhat=yhat, yhst=yhst, rmse=rmse)
+
+
+def plot_distribution(y=None, n_bins=30, dist_func=dist.norm, ax=None, **kwargs):
+
     args = dist_func.fit(y)
     dist = dist_func(*args)
 
-    if not plot:
-        xbins = np.linspace(y.min(), y.max(), n_bins + 1)
-        x = np.convolve(xbins, [0.5, 0.5], mode="valid")
-        yhst = np.histogram(y, bins=xbins, density=True)[0]
-        yhat = dist.pdf(x)
+    x = np.linspace(y.min(), y.max(), 100)
+    yhat_plot = dist.pdf(x)
 
-        resid = yhst - yhat
-        if metric == "rmse":
-            result = (resid**2).mean() ** 0.5
-        elif metric == "mae":
-            result = abs(resid).mean()
-        else:
-            raise ValueError("metric must be 'rmse' or 'mae'")
+    if ax is None:
+        fig, ax = plt.subplots()
 
-        return result
-    else:
-        x = np.linspace(y.min(), y.max(), 100)
-        yhat_plot = dist.pdf(x)
+    ax.hist(y, bins=n_bins, density=True, color="k")
+    ax.plot(x, yhat_plot)
 
-        plt.hist(y, bins=n_bins, density=True, color="k")
-        ax = plt.gca()
-        ax.plot(x, yhat_plot)
-        txt = "\n".join(np.array(args).round(4).astype(str))
-        ax.text(0.95, 0.95, txt, ha="right", va="top", transform=ax.transAxes)
+    txt = "\n".join(np.array(args).round(4).astype(str))
+    ax.text(0.95, 0.95, txt, ha="right", va="top", transform=ax.transAxes)
 
-        return ax
+    return ax
 
 
 def list_all_scipy_distributions():
@@ -84,24 +87,26 @@ def common_distributions():
     ]
 
 
-def find_best_distribution_fit(data, distributions=common_distributions(), **kwargs):
+def find_best_distribution_fit(
+    data, distributions=common_distributions(), **fit_kwargs
+):
     if distributions is None:
         distributions = list_all_scipy_distributions()
 
     results = {}
     for d in distributions:
         try:
-            name = d.__class__.__name__.split("_")[0]
-            props = kwargs
+            name = d.__class__.__name__.relace("_gen", "")
+            props = fit_kwargs
             props.update(dict(dist_func=d, plot=0))
-            results[name] = fit_distribution(data, **props)
+            results[name] = get_distribution_fit(data, **props)
             print("", end=".")
         except KeyboardInterrupt:
             raise KeyboardInterrupt
         except Exception:
             pass
 
-    s = pd.Series(results)
+    s = pd.DataFrame(results)
     return s
 
 
