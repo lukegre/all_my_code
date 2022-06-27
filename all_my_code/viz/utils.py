@@ -110,3 +110,85 @@ def save_figures_to_pdf(fig_list, pdf_name, return_figures=False, **savefig_kwar
         return fig_list
     else:
         plt.close("all")
+
+
+def add_colorbar_cumsum_count_from_map(img, cb=None):
+    """
+    Adds the percentage of the data that falls in a given
+    level for a discrete color map.
+
+    Parameters
+    ----------
+    img : matplotlib.image.AxesImage
+        The image that contains the levels - must contain
+        'allsegs' attribute (matplotlib.contour[f])
+    cb : matplotlib.colorbar.Colorbar
+        The colorbar to add the percentage to. If not provided,
+        then will look in img for 'colorbar' attribute.
+
+    Returns
+    -------
+    cb : matplotlib.colorbar.Colorbar
+        The colorbar with the percentage added.
+    """
+
+    import pandas as pd
+    import numpy as np
+
+    def get_cumsum_count_from_contourf(img):
+        counts = {}
+        for level, segment in zip(img.levels, img.allsegs):
+            counts[level] = sum([len(seg) for seg in segment])
+
+        df = pd.Series(counts).to_frame(name="counts")
+        df["count_cumsum"] = df.counts.cumsum()
+        df["percent"] = df.counts / df.counts.sum() * 100
+        df["pct_cumsum"] = df.percent.cumsum()
+        return df
+
+    def get_cumsum_count_from_scatter(img):
+        msg = "Cannot get cumsum count from scatter plot yet"
+        raise NotImplementedError(msg)
+
+    if hasattr(img, "allsegs"):
+        df = get_cumsum_count_from_contourf(img)
+    else:
+        raise TypeError("Only works for contourf at the moment")
+
+    if cb is None:
+        if hasattr(img, "colorbar"):
+            cb = img.colorbar
+        else:
+            raise KeyError("No 'colorbar' found in img, please provide cb")
+
+    x = np.convolve(df.index.values, [0.5, 0.5], mode="valid")
+    dx = np.diff(x).mean()
+    df["x"] = np.r_[x, x[-1] + dx]
+
+    if cb.extend == "min":
+        df = df.iloc[1:]
+    elif cb.extend == "max":
+        df = df.iloc[:-1]
+    elif cb.extend == "both":
+        df = df.iloc[1:-1]
+
+    half = df.x.max() / 2
+    cb.percentages = []
+    for key in df.index:
+        color = "w" if key < half else "k"
+        x = df.loc[key, "x"]
+        s = df.loc[key, "percent"]
+        props = dict(ha="center", va="center", alpha=0.5)
+        cb.percentages += (cb.ax.text(x, half, f"{s:.0f}%", color=color, **props),)
+
+    cb.ax.text(
+        -0.01,
+        0.5,
+        "Percentage\nof data",
+        ha="right",
+        va="center",
+        transform=cb.ax.transAxes,
+        alpha=0.5,
+    )
+
+    return cb
