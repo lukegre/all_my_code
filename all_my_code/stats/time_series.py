@@ -77,7 +77,7 @@ def climatology(da, tile=False, groupby_dim="time.month"):
 
 
 @apply_to_dataset
-def deseasonalise(da, groupby_dim="time.month"):
+def deseasonalise(da, groupby_dim="time.month", keep_mean=True):
     """
     Remove the seasonal cycle from the time series
 
@@ -85,8 +85,12 @@ def deseasonalise(da, groupby_dim="time.month"):
     ----------
     da : xr.DataArray
         a data array for which you want to remove the seasonal cycle
-    groupby_dim : str
+    groupby_dim : str [time.month]
         the dimension to group by
+    keep_mean : bool [True]
+        if True, the mean of the data along the grouping dimension
+        is kept in the output. If False, then the long term mean
+        is removed.
 
     Returns
     -------
@@ -97,7 +101,9 @@ def deseasonalise(da, groupby_dim="time.month"):
     dim0, dim1 = groupby_dim.split(".")
     grp = da.groupby(groupby_dim)
     seasonal_cycle = grp.mean(dim0)
-    seasonal_cycle -= seasonal_cycle.mean(dim1)
+    if keep_mean:
+        seasonal_cycle -= seasonal_cycle.mean(dim1)
+
     deseasonalised = grp - seasonal_cycle
     deseasonalised = deseasonalised.assign_attrs(units=da.attrs.get("units", ""))
 

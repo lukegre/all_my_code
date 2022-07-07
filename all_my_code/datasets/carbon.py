@@ -4,7 +4,7 @@ import os
 
 
 def socat_gridded(
-    version="2021", save_dir="~/Data/cached/", delete_intermediate_files=True
+    version="2022", save_dir="~/Data/cached/", delete_intermediate_files=True
 ):
     from pathlib import Path as posixpath
 
