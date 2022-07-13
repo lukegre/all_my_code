@@ -318,14 +318,8 @@ def make_pco2_seasonal_mask(pco2, res=1, eq_lat=10, high_lat=65):
 
     hem_flip = hemisphere_sign(res)
 
-    seascyl = (
-        pco2.stats.seascycl_fit_climatology()
-        .jja_minus_djf.groupby("time.month")
-        .mean("time")
-    )
-    jfm = seascyl.sel(month=[12, 1, 2]).mean("month")  # JFM
-    jas = seascyl.sel(month=[6, 7, 8]).mean("month")  # JAS
-    diff = (jfm - jas) * hem_flip
+    diff = pco2.stats.seascycl_fit_climatology().jja_minus_djf.mean("time")
+    diff = diff * hem_flip
 
     high_lats = diff.where(mask1) > 0
     low_lats = mask2 & ~high_lats & diff.notnull()
