@@ -384,8 +384,14 @@ def linregress(y, x=None, dim="time", skipna=True):
     if isinstance(y, xr.Dataset):
         raise TypeError("linregress is not implemented for xr.Dataset")
 
+    if skipna:
+        grid = y.isel(**{dim: 0}).copy()
+        mask = y.notnull().any(dim)
+        y = y.where(mask, drop=True)
+
     if x is None:
         x = xr.DataArray(np.arange(y[dim].size), dims=dim, coords={dim: y[dim]})
+        x = xr.ones_like(y) * x
 
     ds = xr.Dataset()
     ds["x"] = x
@@ -400,6 +406,8 @@ def linregress(y, x=None, dim="time", skipna=True):
     ds["pvalue"] = pearson_r_p_value(y, ds.yhat, dim=dim, skipna=skipna)
     ds["mape"] = mape(y, ds.yhat, dim=dim, skipna=True) * 100
 
+    if skipna:
+        ds = ds.reindex_like(grid)
     order = "x y yhat slope intercept rvalue r2 pvalue rmse mape".split()
     return ds[order]
 
