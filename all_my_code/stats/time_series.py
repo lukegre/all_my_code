@@ -251,7 +251,9 @@ def auto_corr(da, lag, dim="time"):
     return correlated
 
 
-def polyfit(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
+def polyfit(
+    y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True, skipna=True
+):
     """
     Full linear regression with all stats (coefs, r2, pvalue, rmse, +)
 
@@ -287,7 +289,9 @@ def polyfit(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
         outputs = run_parallel(
             polyfit,
             inputs,
-            kwargs=dict(dim=dim, deg=deg, full=full, drop_polyfit_name=False),
+            kwargs=dict(
+                dim=dim, deg=deg, full=full, drop_polyfit_name=False, skipna=skipna
+            ),
             verbose=True,
         )
 
@@ -318,7 +322,7 @@ def polyfit(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
         yy = y
 
     # calculate polyfit
-    fit = _polyfit(yy, dim=dim, deg=deg, full=full)
+    fit = _polyfit(yy, dim=dim, deg=deg, full=full, skipna=skipna)
 
     if not full:
         return fit
@@ -355,7 +359,7 @@ def polyfit(y, x=None, dim="time", deg=1, full=True, drop_polyfit_name=True):
 
 
 @apply_to_dataset
-def linregress(y, x=None, dim="time"):
+def linregress(y, x=None, dim="time", skipna=True):
     """
     Calculate the linear regression between two xarray.DataArray objects.
 
@@ -377,21 +381,24 @@ def linregress(y, x=None, dim="time"):
     """
     from xskillscore import pearson_r, linslope, pearson_r_p_value, rmse, r2, mape
 
+    if isinstance(y, xr.Dataset):
+        raise TypeError("linregress is not implemented for xr.Dataset")
+
     if x is None:
         x = xr.DataArray(np.arange(y[dim].size), dims=dim, coords={dim: y[dim]})
 
     ds = xr.Dataset()
     ds["x"] = x
     ds["y"] = y
-    ds["rvalue"] = pearson_r(x, y, dim="time")
-    ds["slope"] = linslope(x, y, dim="time")
-    ds["intercept"] = y.mean(dim="time") - ds.slope * x.mean(dim="time")
+    ds["rvalue"] = pearson_r(x, y, dim=dim, skipna=skipna)
+    ds["slope"] = linslope(x, y, dim=dim, skipna=skipna)
+    ds["intercept"] = y.mean(dim=dim) - ds.slope * x.mean(dim=dim)
     ds["yhat"] = x * ds.slope + ds.intercept
     # the following all need yhat as input
-    ds["r2"] = r2(y, ds.yhat, dim="time")
-    ds["rmse"] = rmse(y, ds.yhat, dim="time")
-    ds["pvalue"] = pearson_r_p_value(y, ds.yhat, dim="time")
-    ds["mape"] = mape(y, ds.yhat, dim="time") * 100
+    ds["r2"] = r2(y, ds.yhat, dim=dim, skipna=skipna)
+    ds["rmse"] = rmse(y, ds.yhat, dim=dim, skipna=skipna)
+    ds["pvalue"] = pearson_r_p_value(y, ds.yhat, dim=dim, skipna=skipna)
+    ds["mape"] = mape(y, ds.yhat, dim=dim, skipna=True) * 100
 
     order = "x y yhat slope intercept rvalue r2 pvalue rmse mape".split()
     return ds[order]
