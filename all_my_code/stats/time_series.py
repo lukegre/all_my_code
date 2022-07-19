@@ -436,6 +436,13 @@ def time_of_emergence_stdev(
     -------
     time_of_emergence : xr.DataArray
         the time of emergence in years
+        
+    Reference
+    ---------
+    Keller, K. M., F. Joos, and C. C. Raible (2014), 
+        Time of emergence of trends in ocean biogeochemistry, 
+        Biogeosciences, 11(13), 3647–3659, 
+        doi:10.5194/bg-11-3647-2014.
     """
 
     name = getattr(da, "name", None)
