@@ -67,7 +67,7 @@ def _download_ethz_data(save_dir="~/Data/cached/", version="2021"):
     return name
 
 
-def oceansoda_ethz(save_dir="~/Data/cached/", version="2021"):
+def oceansoda_ethz(save_dir="~/Data/cached/", version="2021", salt_norm=34.5):
     """
     Downloads and homogenises variable names for the different ETHZ versions
     (2020, 2021). Names are changed to match the v2021 output
@@ -114,8 +114,15 @@ def oceansoda_ethz(save_dir="~/Data/cached/", version="2021"):
 
     print("[H+], sDIC and sALK calculated (normed to local long-term mean)")
     ds["h"] = (10 ** (-ds.ph_total) * 1e9).assign_attrs(units="nmol/kg")
-    ds["sdic"] = ds.dic / ds.salinity * ds.salinity.mean("time")
-    ds["salk"] = ds.alk / ds.salinity * ds.salinity.mean("time")
+    if isinstance(salt_norm, str):
+        if salt_norm == "time":
+            s0_norm = ds.salinity.mean("time")
+        else:
+            raise ValueError(f"salt_norm must be 'time' or a float, not {salt_norm}")
+    elif isinstance(salt_norm, (float, int)):
+        s0_norm = salt_norm
+    ds["sdic"] = ds.dic / ds.salinity * s0_norm
+    ds["salk"] = ds.alk / ds.salinity * s0_norm
 
     return ds
 
