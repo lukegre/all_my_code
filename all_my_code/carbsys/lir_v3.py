@@ -4,7 +4,7 @@ import xarray as xr
 from functools import wraps as _wraps
 
 
-def _esper_lir(
+def _esper_lir_arrays(
     output_var="TA",
     depth=None,
     lat=None,
@@ -169,6 +169,155 @@ def _esper_lir(
     return yhat
 
 
+def esper_lir_xarray(
+    output_var="TA",
+    sal=None,
+    temp=None,
+    nitrate=None,
+    oxygen=None,
+    silicate=None,
+):
+    """
+    Calculates total alkalinity using locally interpolated linear regressions
+    from Carter et al. (2021).
+
+    Note that coordinate parameters [depth, lat, lon] are not required if
+    input arrays are xarray.DataArrays that contain lat and lon. If depth is
+    not provided, it will be assumed to be 0 (i.e., surface).
+
+    Parameters
+    ----------
+    depth : array_like
+        Depth of data (m). If not provided, surface is assumed.
+    lat : array_like
+        Latitude of data (degrees N)
+    lon : array_like
+        Longitude of data (degrees E)
+    sal : array-like
+        salinity (always required)
+    temp : array-like
+        temperature in degC
+    nitrate : array-like
+        nitrate concentration in umol/kg
+    oxygen : array-like
+        oxygen concentration in umol/kg
+    silicate : array-like
+        silicate concentration in umol/kg
+
+    Returns
+    -------
+    LIR_output : array-like
+        The LIR output calculated from the input variables.
+
+    Note
+    ----
+    The table below shows the technical details of which variables will
+    be used in the LIR calculation. These names are consistent with the
+    data that is loaded from the ESPER coefficients.
+
+    DesiredVar   | A             B             C
+    _____________|_____________________________________
+    TA           | Nitrate       Oxygen        Silicate
+    DIC          | Nitrate       Oxygen        Silicate
+    pH           | Nitrate       Oxygen        Silicate
+    phosphate    | Nitrate       Oxygen        Silicate
+    nitrate      | Phosphate     Oxygen        Silicate
+    silicate     | Phosphate     Oxygen        Nitrate
+    O2           | Phosphate     Nitrate       Silicate
+
+    TODO
+    ----
+    - return uncertainty
+    - implement DIC trend
+    """
+    import pandas as pd
+    from numpy import array
+
+    if sal is None:
+        raise ValueError("salinity is required")
+
+    # find out which variables are given as input
+    names = array(["sal", "temp", "nitrate", "oxygen", "silicate"])
+    vars = array([sal, temp, nitrate, oxygen, silicate], dtype="O")
+    avail = array([v is not None for v in vars])
+
+    assert sal.ndim == 3, "salinity must be 3D (time, lat, lon)"
+
+    # make sure all variables have the same shape as salinity
+    # which is the only variable that is required for all cases
+    for i, da in enumerate(vars[avail]):
+        name = names[avail][i]
+        try:
+            xr.align(sal, da, join="exact")
+        except ValueError as e:
+            raise ValueError(f"{e} - salinity vs. {name}")
+
+    # find out which equation case to use
+    # this is copied directly from the ESPER script
+    cases = pd.DataFrame(
+        {
+            1: [1, 1, 1, 1, 1],
+            2: [1, 1, 1, 0, 1],
+            3: [1, 1, 0, 1, 1],
+            4: [1, 1, 0, 0, 1],
+            5: [1, 1, 1, 1, 0],
+            6: [1, 1, 1, 0, 0],
+            7: [1, 1, 0, 1, 0],
+            8: [1, 1, 0, 0, 0],
+            9: [1, 0, 1, 1, 1],
+            10: [1, 0, 1, 0, 1],
+            11: [1, 0, 0, 1, 1],
+            12: [1, 0, 0, 0, 1],
+            13: [1, 0, 1, 1, 0],
+            14: [1, 0, 1, 0, 0],
+            15: [1, 0, 0, 1, 0],
+            16: [1, 0, 0, 0, 0],
+        }
+    ).T
+    # matching the equation case to the input variables
+    eq = (cases == avail).all(axis=1).where(lambda x: x).dropna().index.values
+
+    # some housekeeping - make sure that the equation case is valid
+    msg = "there must only be one unique equation - something wrong with cases"
+    assert len(eq) == 1, msg
+    eq = eq[0]  # take the first entry
+
+    darrs = [xr.ones_like(sal).rename("0")] + vars[avail].tolist()
+    preds = xr.concat(darrs, "parameter").assign_coords(
+        parameter=["0"] + names[avail].tolist()
+    )
+    preds = (
+        preds.assign_coords(lon=lambda x: x.lon.values % 360)
+        .sortby("lon")
+        .sel(lon=slice(0, 360))
+    )
+    # downloads the coefficients from the remote database
+    coefs = (
+        fetch_esper_data_as_xarray(output_var)
+        .coefficients.sel(equation=eq)
+        .isel(depth=0, drop=True)
+    )
+    coefs = (
+        coefs.assign_coords(lon=lambda x: x.lon.values % 360)
+        .sortby("lon")
+        .drop_duplicates(dim="lon")
+        .sel(lon=slice(0, 360))
+    )
+    coefs_interp = coefs.grid.interp(like=preds)
+
+    mask = preds.sel(parameter="sal", drop=True).notnull()
+    yhat = (coefs_interp * preds).sum("parameter").transpose("time", "lat", "lon")
+    yhat = (
+        yhat.where(lambda x: x.values >= 0)
+        .fillna(0)
+        .where(mask)
+        .rename(output_var)
+        .where(lambda x: x.lat < 86)
+    )
+
+    return yhat
+
+
 def fetch_esper_data_as_xarray(lir_var):
     """
     Downloads ESPER data - all equations in one file rather than splitting
@@ -241,7 +390,7 @@ def fetch_esper_data_as_xarray(lir_var):
     return ds
 
 
-@_wraps(_esper_lir)
+@_wraps(_esper_lir_arrays)
 def esper_lir(output_var="TA", **kwargs):
     """
     Wrapper for applying LIR functions. Checks if lat, lon, depth
@@ -266,9 +415,9 @@ def esper_lir(output_var="TA", **kwargs):
             "data variables have to be either DataArray or array-like, not both"
         )
 
-    # if all data kwargs are arraylike, then pass directly to _esper_lir
+    # if all data kwargs are arraylike, then pass directly to _esper_lir_arrays
     if len(arraylike) > 0:
-        return _esper_lir(output_var=output_var, **kwargs)
+        return _esper_lir_arrays(output_var=output_var, **kwargs)
     else:
         assert all([k in kwargs["sal"].coords for k in ["lat", "lon"]])
         dataarrays = {k: dataarrays[k].conform() for k in dataarrays}
@@ -283,7 +432,7 @@ def esper_lir(output_var="TA", **kwargs):
 
         lir_ready = {k: df[k] for k in df}
 
-        lir_output = _esper_lir(output_var=output_var, **lir_ready)
+        lir_output = _esper_lir_arrays(output_var=output_var, **lir_ready)
         out = lir_output.set_axis(df_orig.index).to_xarray()
         out = out.conform().assign_attrs(
             source="https://github.com/BRCScienceProducts/ESPER",
