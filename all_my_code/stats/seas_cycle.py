@@ -63,6 +63,7 @@ def seascycl_fit_graven(da, n_years=3, dim="time"):
     stride = _get_number_of_time_steps_in_year(da[dim])
     window = n_years * stride
 
+    assert stride == 12, "this function only works for monthly data"
     assert n_years % 2, "n_years must be an odd number"
 
     def fit_sc(x, a1, a2, a3, a4, a5, a6, a7):
@@ -140,6 +141,8 @@ def seascycl_fit_climatology(da, n_years=3, dim="time"):
     """
 
     stride = _get_number_of_time_steps_in_year(da[dim])
+    assert stride == 12, "this function only works for monthly data"
+
     window = n_years * stride
 
     dims = list(da.dims)
