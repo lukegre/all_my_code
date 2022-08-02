@@ -81,7 +81,8 @@ def seascycl_fit_graven(da, n_years=3, dim="time"):
     dims.remove(dim)
 
     windowed = (
-        da.rolling(**{dim: window}, center=True, min_periods=stride)
+        # we do not center since this shifts the months by 6
+        da.rolling(**{dim: window}, center=False, min_periods=stride)
         .construct(**{dim: "time_step"}, stride=stride)
         .stack(other=dims)
         .where(lambda x: x.notnull().sum("time_step") > stride, drop=True)
@@ -144,7 +145,8 @@ def seascycl_fit_climatology(da, n_years=3, dim="time"):
     dims = list(da.dims)
     dims.remove(dim)
     seas_cycle = (
-        da.rolling(**{dim: window}, center=True, min_periods=stride)
+        # we do not center since this shifts the months by 6
+        da.rolling(**{dim: window}, center=False, min_periods=stride)
         .construct(**{dim: "month"}, stride=stride)
         .assign_coords(month=np.arange(window) % 12 + 1)
         .groupby("month")
