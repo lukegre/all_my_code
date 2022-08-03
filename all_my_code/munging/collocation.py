@@ -310,3 +310,33 @@ def _make_bins_from_gridded_coord(x):
         bins = np.linspace(x[0] - dx / 2, x[-1] + dx / 2, x.size + 1)
     assert (len(x) + 1) == len(bins), "bins must be one longer than centers"
     return bins
+
+
+@pd.core.accessor.register_dataframe_accessor("gridding")
+class PandasGridder:
+    def __init__(self, pandas_obj):
+        self._obj = pandas_obj
+
+    def grid_to_target_array(self, target_array, aggregators=("mean",), sparse=True):
+        df = self._obj
+
+        dims = ["time", "lat", "lon"]
+        for key in dims:
+            assert (
+                key in df.columns
+            ), f"{key} not in columns - required for gridding. Try resetting index."
+            assert (
+                key in target_array.dims
+            ), f"{key} not in target_array.dims - required for gridding."
+            a = df[key].values[0]
+            b = target_array[key].values[0]
+            a - b
+
+        t, y, x = df[dims].values.T
+        cols = df.columns.drop(dims)
+
+        t = t.astype("datetime64[ns]")
+        out = grid_dataframe_to_target(
+            t, y, x, df[cols], target_array, sparse=sparse, aggregators=aggregators
+        )
+        return out
