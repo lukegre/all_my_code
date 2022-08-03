@@ -6,8 +6,8 @@ from xarray import register_dataset_accessor as _register_dataset
 from ..utils import add_docs_line1_to_attribute_history
 from ..utils import make_xarray_accessor as _make_xarray_accessor
 from ..utils import unwrap
-from . import colocation, conform, date_utils, sparse, units
-from .colocation import colocate_dataarray as _colocate_dataarray
+from . import collocation, conform, date_utils, sparse, units
+from .collocation import colocate_dataarray as _colocate_dataarray
 from .conform import apply_process_pipeline as _apply_process_pipeline
 from .conform import correct_coord_names as _correct_coord_names
 from .conform import drop_0d_coords as _drop_0d_coords

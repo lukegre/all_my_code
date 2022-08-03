@@ -112,7 +112,7 @@ def save_figures_to_pdf(fig_list, pdf_name, return_figures=False, **savefig_kwar
         plt.close("all")
 
 
-def add_colorbar_cumsum_count_from_map(img, cb=None):
+def add_colorbar_cumsum_count_from_map(img, cb=None, ha="left"):
     """
     Adds the percentage of the data that falls in a given
     level for a discrete color map.
@@ -134,6 +134,9 @@ def add_colorbar_cumsum_count_from_map(img, cb=None):
 
     import pandas as pd
     import numpy as np
+    import matplotlib as mpl
+
+    raise NotImplementedError("the function doesn't work at the moment")
 
     def get_cumsum_count_from_contourf(img):
         counts = {}
@@ -146,25 +149,57 @@ def add_colorbar_cumsum_count_from_map(img, cb=None):
         df["pct_cumsum"] = df.percent.cumsum()
         return df
 
-    def get_cumsum_count_from_scatter(img):
-        msg = "Cannot get cumsum count from scatter plot yet"
-        raise NotImplementedError(msg)
+    def get_cumsum_count_from_path_collection(path_collection):
+        y = path_collection.get_array()
+        # we look for the quadmesh object
+        for child in cb.ax.get_children():
+            if isinstance(child, mpl.collections.QuadMesh):
+                bin_centers = child.get_array()
+                break
+            else:
+                bin_centers = None
 
-    if hasattr(img, "allsegs"):
-        df = get_cumsum_count_from_contourf(img)
-    else:
-        raise TypeError("Only works for contourf at the moment")
+        if bin_centers is None:
+            raise ValueError("Could not find quadmesh object in colorbar")
 
+        if len(bin_centers) > 15:
+            raise ValueError(
+                f"There are too many colors ({bin_centers}) - make it more discrete"
+            )
+
+        # now we make the bin edges
+        db = float(np.diff(bin_centers).mean())  # we need the delta bins
+        b0, b1 = bin_centers.min(), bin_centers.max()
+        bin_edges = np.arange(b0 - (db / 2), b1 + db, db)
+
+        df = pd.DataFrame()
+        df["counts"] = np.histogram(y, bin_edges)[0]
+        df["percent"] = np.histogram(y, bin_edges, density=True)[0] * 100
+        df["count_cumsum"] = df.counts.cumsum()
+        df["pct_cumsum"] = df.percent.cumsum()
+        return df
+
+    # cb is used by get_cumsum_count_from_path_collection so must run first
     if cb is None:
         if hasattr(img, "colorbar"):
             cb = img.colorbar
         else:
             raise KeyError("No 'colorbar' found in img, please provide cb")
 
+    if hasattr(img, "allsegs"):
+        df = get_cumsum_count_from_contourf(img)
+    elif isinstance(img, mpl.collections.PathCollection):
+        df = get_cumsum_count_from_path_collection(img)
+    else:
+        raise TypeError(
+            "only QuadMesh and PathCollection are supported inputs for 'img'"
+        )
+
     x = np.convolve(df.index.values, [0.5, 0.5], mode="valid")
     dx = np.diff(x).mean()
     df["x"] = np.r_[x, x[-1] + dx]
 
+    print(df)
     if cb.extend == "min":
         df = df.iloc[1:]
     elif cb.extend == "max":
@@ -172,23 +207,26 @@ def add_colorbar_cumsum_count_from_map(img, cb=None):
     elif cb.extend == "both":
         df = df.iloc[1:-1]
 
-    half = df.x.max() / 2
+    xlim = cb.ax.get_ylim()
+    half = (xlim[1] - xlim[0]) / 2
     cb.percentages = []
     for key in df.index:
         color = "w" if key < half else "k"
         x = df.loc[key, "x"]
         s = df.loc[key, "percent"]
-        props = dict(ha="center", va="center", alpha=0.5)
-        cb.percentages += (cb.ax.text(x, half, f"{s:.0f}%", color=color, **props),)
+        s = round(s, 1) if s < 10 else round(s)
+        props = dict(ha="center", va="center", alpha=0.7, zorder=10)
+        if cb.orientation.startswith("v"):
+            y, x = x, half
+            props.update(rotation=90)
+        else:
+            y = half
+        cb.percentages += (cb.ax.text(x, y, f"{s}%", color=color, **props),)
 
-    cb.ax.text(
-        -0.01,
-        0.5,
-        "Percentage\nof data",
-        ha="right",
-        va="center",
-        transform=cb.ax.transAxes,
-        alpha=0.5,
-    )
+    if ha == "left":
+        props = dict(x=-0.01, y=0.5, ha="right", va="center")
+    elif ha == "right":
+        props = dict(x=1.01, y=0.5, ha="left", va="center")
+    cb.ax.text(**props, s="Distribution\nof data", transform=cb.ax.transAxes, alpha=0.7)
 
     return cb

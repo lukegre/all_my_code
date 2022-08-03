@@ -183,7 +183,9 @@ def colocate_dataarray(da, verbose=True, **coords):
     binned = pd.DataFrame(
         {
             k: pd.cut(
-                coords[k], bins[k], labels=np.arange(bins[k].size - 1, dtype=int),
+                coords[k],
+                bins[k],
+                labels=np.arange(bins[k].size - 1, dtype=int),
             )
             for k in keys
         }
@@ -207,3 +209,70 @@ def colocate_dataarray(da, verbose=True, **coords):
     out[null] = np.NaN
 
     return out
+
+
+def grid_flat_dataframe_to_target(
+    flat_df,
+    target,
+    aggregators=["mean", "std", "count"],
+):
+    """
+    Grids a flat data array to a target grid.
+
+    Parameters
+    ----------
+    data : array-like
+        the data to grid
+    target : array-like
+        the target grid
+    return_dataarray : bool, optional
+        if True, returns a xr.DataArray instead of a numpy array
+    coords : dict, optional
+        the coordinates to grid the data to. The keys are the dimension names
+        and the values are the coordinates. The coordinates must be the same
+        length as the data. If the data is a pandas.DataFrame, the coordinates
+        can be specified as a list of column names. If the data is a
+        pandas.Series, the coordinates can be specified as a list of values.
+    """
+
+    df = flat_df
+
+    coords = target.coords
+    keys = list(target.coords.keys())
+
+    for k in keys:
+        assert k in df, f"{k} is not a column in target"
+        msg = (
+            f"{k} is not the same type in flat "
+            f"({df[k].dtype}) as in target ({target[k].dtype})"
+        )
+        assert df[k].dtype == target[k].dtype, msg
+
+    labels = {k: np.array(v, ndmin=1) for k, v in target.coords.items()}
+    bins = {k: _make_bins_from_gridded_coord(coords[k]) for k in keys}
+    cuts = []
+    for k in keys:
+        cuts += (pd.cut(df[k], bins[k], labels=labels[k]),)
+
+    grp = df.drop(columns=[k for k in coords if k in df]).groupby(cuts)
+
+    aggregated = grp.aggregate(func=aggregators).dropna(how="all")
+    aggregated.columns = ["_".join(col) for col in aggregated.columns.values]
+
+    ds = xr.Dataset.from_dataframe(aggregated, sparse=True)
+
+    return ds
+
+
+def _make_bins_from_gridded_coord(x):
+    from .grid import estimate_grid_spacing
+
+    x = np.array(x)
+    if np.issubdtype(x.dtype, np.datetime64):
+        dx = np.nanmean(np.diff(x).astype(int)).astype("timedelta64[ns]")
+        bins = np.arange(x[0] - dx / 2, x[-1] + dx, dx, dtype="datetime64[ns]")
+    else:
+        dx = estimate_grid_spacing(x)
+        bins = np.linspace(x[0] - dx / 2, x[-1] + dx / 2, x.size + 1)
+    assert (len(x) + 1) == len(bins), "bins must be one longer than centers"
+    return bins

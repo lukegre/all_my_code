@@ -441,7 +441,7 @@ def estimate_grid_spacing(coord):
     """
     import numpy as np
 
-    delta_x = np.diff(coord.values)
+    delta_x = np.diff(np.array(coord))
     delta_x_u = np.unique(delta_x)
     if len(delta_x_u) > 1:
         return np.median(delta_x)
