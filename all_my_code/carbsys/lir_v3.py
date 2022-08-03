@@ -240,6 +240,7 @@ def esper_lir_xarray(
     names = array(["sal", "temp", "nitrate", "oxygen", "silicate"])
     vars = array([sal, temp, nitrate, oxygen, silicate], dtype="O")
     avail = array([v is not None for v in vars])
+    pred_cols = names[avail]
 
     assert sal.ndim == 3, "salinity must be 3D (time, lat, lon)"
 
@@ -313,6 +314,10 @@ def esper_lir_xarray(
         .where(mask)
         .rename(output_var)
         .where(lambda x: x.lat < 86)
+    ).assign_attrs(
+        description=(
+            f"{output_var} estimated from the esper_lir eq #{eq} using {pred_cols}"
+        )
     )
 
     return yhat

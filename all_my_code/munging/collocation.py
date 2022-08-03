@@ -338,5 +338,7 @@ class PandasGridder:
         t = t.astype("datetime64[ns]")
         out = grid_dataframe_to_target(
             t, y, x, df[cols], target_array, sparse=sparse, aggregators=aggregators
+        ).assign_attrs(
+            f"[AMC] gridded flag data to xr.DataArray shape {target_array.shape}"
         )
         return out
