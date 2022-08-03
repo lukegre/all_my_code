@@ -211,57 +211,91 @@ def colocate_dataarray(da, verbose=True, **coords):
     return out
 
 
-def grid_flat_dataframe_to_target(
-    flat_df,
+def grid_dataframe_to_target(
+    time,
+    lat,
+    lon,
+    cols,
     target,
+    verbose=False,
+    sparse=False,
     aggregators=["mean", "std", "count"],
 ):
     """
-    Grids a flat data array to a target grid.
+    Does gridding for ungridded data to match an xarray.DataArray
 
     Parameters
     ----------
-    data : array-like
-        the data to grid
-    target : array-like
-        the target grid
-    return_dataarray : bool, optional
-        if True, returns a xr.DataArray instead of a numpy array
-    coords : dict, optional
-        the coordinates to grid the data to. The keys are the dimension names
-        and the values are the coordinates. The coordinates must be the same
-        length as the data. If the data is a pandas.DataFrame, the coordinates
-        can be specified as a list of column names. If the data is a
-        pandas.Series, the coordinates can be specified as a list of values.
+    time : datetime64[ns]
+        time of measurements
+    lat : float
+        must range from -90 : 90 (will be flipped if 90 : -90)
+    lon : float
+        must range from -180 : 180 (will be corrected if 0 : 360)
+    target : xr.DataArray
+        a regularly gridded 3D data array with dims (time, lat, lon)
+        this will only be used to define the output format.
+
+    Returns
+    -------
+    matched_value : float
+        an array that matches length of socat data, but is colocated
+        nc_dataarray data
+
     """
+    import numpy as np
 
-    df = flat_df
+    if verbose:
+        print("\t{}: loading".format(target.name), end=", ")
 
-    coords = target.coords
-    keys = list(target.coords.keys())
+    print("binning data", end=", ")
+    time_name, lat_name, lon_name = target.dims
 
-    for k in keys:
-        assert k in df, f"{k} is not a column in target"
-        msg = (
-            f"{k} is not the same type in flat "
-            f"({df[k].dtype}) as in target ({target[k].dtype})"
-        )
-        assert df[k].dtype == target[k].dtype, msg
+    t = target[time_name].values
+    y = target[lat_name].values
+    x = target[lon_name].values
 
-    labels = {k: np.array(v, ndmin=1) for k, v in target.coords.items()}
-    bins = {k: _make_bins_from_gridded_coord(coords[k]) for k in keys}
-    cuts = []
-    for k in keys:
-        cuts += (pd.cut(df[k], bins[k], labels=labels[k]),)
+    dy = np.nanmean(np.diff(y))
+    dx = np.nanmean(np.diff(x))
 
-    grp = df.drop(columns=[k for k in coords if k in df]).groupby(cuts)
+    xbins = np.linspace(x[0] - dx / 2, x[-1] + dx / 2, x.size + 1)
+    ybins = np.linspace(y[0] - dy / 2, y[-1] + dy / 2, y.size + 1)
 
-    aggregated = grp.aggregate(func=aggregators).dropna(how="all")
-    aggregated.columns = ["_".join(col) for col in aggregated.columns.values]
+    dt = np.nanmean(np.diff(t).astype(int)).astype("timedelta64[ns]")
+    tbins = np.arange(t[0], t[-1] + dt * 2, dt, dtype="datetime64[ns]")
 
-    ds = xr.Dataset.from_dataframe(aggregated, sparse=True)
+    # array of indicies based on cutting data
+    tyx = pd.DataFrame(
+        np.vstack(
+            [
+                pd.cut(time, tbins, labels=t).astype("O"),
+                pd.cut(lat, ybins, labels=y).astype("O"),
+                pd.cut(lon, xbins, labels=x).astype("O"),
+            ]
+        ).T,
+        columns=["time", "lat", "lon"],
+    )
+    tyx = tyx.dropna(how="any")
 
-    return ds
+    df = cols.iloc[tyx.index].drop(columns=["time", "lat", "lon"], errors="ignore")
+    df["time"] = tyx["time"].values
+    df["lat"] = tyx["lat"].values
+    df["lon"] = tyx["lon"].values
+
+    grp = df.groupby(["time", "lat", "lon"])
+    agg = grp.aggregate(aggregators)
+    if len(aggregators) > 1:
+        agg.columns = ["_".join(col) for col in agg.columns.values]
+    else:
+        agg.columns = [col[0] for col in agg.columns.values]
+
+    if sparse:
+        print("sparse")
+        xds = xr.Dataset.from_dataframe(agg, sparse=True)
+    else:
+        xds = xr.Dataset.from_dataframe(agg).reindex_like(target)
+
+    return xds
 
 
 def _make_bins_from_gridded_coord(x):

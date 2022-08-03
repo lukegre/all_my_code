@@ -1,14 +1,14 @@
 def test_grid_flat_like_xarray():
-    from all_my_code.munging.collocation import grid_flat_dataframe_to_target
+    from all_my_code.munging.collocation import grid_dataframe_to_target
     import pandas as pd
     import xarray as xr
     import numpy as np
 
     target_grid = xr.DataArray(
-        np.ndarray([12, 90, 180]),
+        np.ndarray([46, 90, 180]),
         dims=("time", "lat", "lon"),
         coords=dict(
-            time=pd.date_range("2000-01", periods=12, freq="MS") + pd.Timedelta("14D"),
+            time=pd.date_range("2000-01", periods=46, freq="8D"),
             lat=np.arange(-89, 90.0, 2),
             lon=np.arange(-179, 180.0, 2),
         ),
@@ -29,4 +29,4 @@ def test_grid_flat_like_xarray():
 
     flat["time"] = t0 + np.random.randint(0, 365, n).astype("timedelta64[D]")
 
-    grid_flat_dataframe_to_target(flat, target_grid)
+    grid_dataframe_to_target(flat.time, flat.lat, flat.lon, flat[["vals"]], target_grid)
