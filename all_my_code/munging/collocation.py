@@ -251,12 +251,14 @@ def grid_dataframe_to_target(
     print("binning data", end=", ")
     time_name, lat_name, lon_name = target.dims
 
+    target = target.assign_coords(**{lon_name: lambda x: x[lon_name] % 360}).sortby(
+        lon_name
+    )
+    lon = lon % 360
+
     t = target[time_name].values
     y = target[lat_name].values
     x = target[lon_name].values
-
-    x = x % 360
-    lon = lon % 360
 
     dy = np.nanmean(np.diff(y))
     dx = np.nanmean(np.diff(x))
