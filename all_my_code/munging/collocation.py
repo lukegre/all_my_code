@@ -364,7 +364,9 @@ class PandasGridder:
             a - b  # an error will be raised if they are not the same type
 
         log("[GRID] Getting dimension arrays for the gridding")
-        t, y, x = df[dims].values.T
+        t = df["time"]
+        y = df["lat"]
+        x = df["lon"]
         cols = df.columns.drop(dims)
 
         t = t.astype("datetime64[ns]")
