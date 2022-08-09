@@ -251,6 +251,11 @@ def grid_dataframe_to_target(
     print("binning data", end=", ")
     time_name, lat_name, lon_name = target.dims
 
+    if any(target[lon_name] < 0):
+        flipped = True
+    else:
+        flipped = False
+
     target = target.assign_coords(**{lon_name: lambda x: x[lon_name] % 360}).sortby(
         lon_name
     )
@@ -299,6 +304,11 @@ def grid_dataframe_to_target(
         xds = xr.Dataset.from_dataframe(agg, sparse=True)
     else:
         xds = xr.Dataset.from_dataframe(agg).reindex_like(target)
+
+    if flipped:
+        xds = xds.assign_coords(
+            **{lon_name: lambda x: (x[lon_name] + 180) % 360 - 180}
+        ).sortby(lon_name)
 
     return xds
 
