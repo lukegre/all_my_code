@@ -271,6 +271,14 @@ def grid_dataframe_to_target(
     # create the right number of bins
     tbins = np.arange(t[0], t[-1] + dt * 1.2, dt, dtype="datetime64[ns]")
 
+    # removing points that are outside the time grid
+    t0, t1 = tbins[[0, -1]]
+    mask = (time >= t0) & (time <= t1)
+    time = time[mask]
+    lat = lat[mask]
+    lon = lon[mask]
+    cols = cols[mask]
+
     # array of indicies based on cutting data
     tyx = pd.DataFrame(
         np.vstack(
