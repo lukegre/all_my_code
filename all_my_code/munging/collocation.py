@@ -267,7 +267,7 @@ def grid_dataframe_to_target(
     ybins = np.linspace(y[0] - dy / 2, y[-1] + dy / 2, y.size + 1)
 
     dt = np.nanmean(np.diff(t).astype(int)).astype("timedelta64[ns]")
-    tbins = np.arange(t[0], t[-1] + dt * 2, dt, dtype="datetime64[ns]")
+    tbins = np.arange(t[0], t[-1] + dt, dt, dtype="datetime64[ns]")
 
     # array of indicies based on cutting data
     tyx = pd.DataFrame(
@@ -305,6 +305,11 @@ def grid_dataframe_to_target(
     if flipped:
         log("[GRID] Longitude was flipped for gridding, flipping back to -180 : 180")
         xds = xds.conform.lon_180W_180E()
+
+    xds["time_bounds"] = xr.DataArray(
+        data=np.c_[tbins[:-1], tbins[1:]], dims=("time", "bounds"), coords={"time": t}
+    )
+
     return xds
 
 
@@ -342,7 +347,7 @@ class PandasGridder:
             ), f"{key} not in target_array.dims - required for gridding."
             a = df[key].values[0]
             b = target_array[key].values[0]
-            a - b
+            a - b  # an error will be raised if they are not the same type
 
         t, y, x = df[dims].values.T
         cols = df.columns.drop(dims)
