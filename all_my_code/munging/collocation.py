@@ -268,7 +268,12 @@ def grid_dataframe_to_target(
     # removing points that are outside the time grid
     t0, t1 = tbins[[0, -1]]
     mask = (time >= t0) & (time <= t1)
-    log(f"[GRID] clipping dataframe time to: {t0} - {t1} (n={mask.sum()})")
+    t0, t1 = [pd.Timestamp(t) for t in [t0, t1]]
+    log(
+        "[GRID] clipping dataframe time to: "
+        f"{t0:%Y-%m-%d} - {t1:%Y-%m-%d} "
+        f"(n={mask.size} -> {mask.sum()})"
+    )
     time = time[mask]
     lat = lat[mask]
     lon = lon[mask]
