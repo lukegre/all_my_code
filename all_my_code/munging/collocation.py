@@ -356,7 +356,7 @@ class PandasGridder:
             target_array,
             sparse=sparse,
             aggregators=aggregators,
-            verbose=verbosity,
+            verbosity=verbosity,
         ).assign_attrs(
             history=f"[AMC] gridded flag data to xr.DataArray shape {target_array.shape}"
         )
