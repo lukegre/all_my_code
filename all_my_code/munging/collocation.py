@@ -231,7 +231,7 @@ def grid_dataframe_to_target(
     lat : float
         must range from -90 : 90 (will be flipped if 90 : -90)
     lon : float
-        must range from -180 : 180 (will be corrected if 0 : 360)
+        must range from -180 : 180
     target : xr.DataArray
         a regularly gridded 3D data array with dims (time, lat, lon)
         this will only be used to define the output format.
@@ -254,6 +254,9 @@ def grid_dataframe_to_target(
     t = target[time_name].values
     y = target[lat_name].values
     x = target[lon_name].values
+
+    x = x % 360
+    lon = lon % 360
 
     dy = np.nanmean(np.diff(y))
     dx = np.nanmean(np.diff(x))
