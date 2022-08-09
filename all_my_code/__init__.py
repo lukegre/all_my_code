@@ -1,4 +1,5 @@
 import logging
+import sys
 
 # setting up the logging
 logger = logging.Logger("AMC", level=logging.WARNING)
@@ -28,7 +29,6 @@ from . import (
 from .files.download import download_file
 from .munging import date_utils
 
-import sys
 
 try:
     __version__ = get_distribution("all_my_code").version
