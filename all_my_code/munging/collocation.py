@@ -260,12 +260,6 @@ def grid_dataframe_to_target(
     y = target[lat_name].values
     x = target[lon_name].values
 
-    dy = np.nanmean(np.diff(y))
-    dx = np.nanmean(np.diff(x))
-
-    xbins = np.linspace(x[0] - dx / 2, x[-1] + dx / 2, x.size + 1)
-    ybins = np.linspace(y[0] - dy / 2, y[-1] + dy / 2, y.size + 1)
-
     dt = np.nanmean(np.diff(t).astype(int)).astype("timedelta64[ns]")
     # the 1.2 is an error factor to account for sometimes the time doesnt
     # create the right number of bins
@@ -274,10 +268,17 @@ def grid_dataframe_to_target(
     # removing points that are outside the time grid
     t0, t1 = tbins[[0, -1]]
     mask = (time >= t0) & (time <= t1)
+    log(f"[GRID] clipping dataframe time to: {t0} - {t1} (n={mask.sum()})")
     time = time[mask]
     lat = lat[mask]
     lon = lon[mask]
     cols = cols[mask]
+
+    dy = np.nanmean(np.diff(y))
+    dx = np.nanmean(np.diff(x))
+
+    xbins = np.linspace(x[0] - dx / 2, x[-1] + dx / 2, x.size + 1)
+    ybins = np.linspace(y[0] - dy / 2, y[-1] + dy / 2, y.size + 1)
 
     # array of indicies based on cutting data
     tyx = pd.DataFrame(
@@ -347,6 +348,9 @@ class PandasGridder:
     ):
         df = self._obj
 
+        log = lambda msg: logger.log(verbosity, msg)
+
+        log("[GRID] Checking that dataframe and target array are compatible")
         dims = ["time", "lat", "lon"]
         for key in dims:
             assert (
@@ -359,6 +363,7 @@ class PandasGridder:
             b = target_array[key].values[0]
             a - b  # an error will be raised if they are not the same type
 
+        log("[GRID] Getting dimension arrays for the gridding")
         t, y, x = df[dims].values.T
         cols = df.columns.drop(dims)
 
