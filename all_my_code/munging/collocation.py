@@ -327,7 +327,9 @@ class PandasGridder:
     def __init__(self, pandas_obj):
         self._obj = pandas_obj
 
-    def grid_to_target_array(self, target_array, aggregators=("mean",), sparse=True):
+    def grid_to_target_array(
+        self, target_array, aggregators=("mean",), sparse=True, verbosity=20
+    ):
         df = self._obj
 
         dims = ["time", "lat", "lon"]
@@ -347,7 +349,14 @@ class PandasGridder:
 
         t = t.astype("datetime64[ns]")
         out = grid_dataframe_to_target(
-            t, y, x, df[cols], target_array, sparse=sparse, aggregators=aggregators
+            t,
+            y,
+            x,
+            df[cols],
+            target_array,
+            sparse=sparse,
+            aggregators=aggregators,
+            verbose=verbosity,
         ).assign_attrs(
             history=f"[AMC] gridded flag data to xr.DataArray shape {target_array.shape}"
         )
