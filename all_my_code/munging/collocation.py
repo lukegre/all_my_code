@@ -249,8 +249,7 @@ def grid_dataframe_to_target(
     def log(msg):
         logger.log(verbosity, msg)
 
-    log(verbosity, "\t{}: loading".format(target.name))
-    log("binning data")
+    log(f"[GRID] creating bins for {target.name}")
     time_name, lat_name, lon_name = target.dims
 
     flipped = True if any(target[lon_name] < 0) else False
@@ -288,7 +287,7 @@ def grid_dataframe_to_target(
     df["lat"] = tyx["lat"].values
     df["lon"] = tyx["lon"].values
 
-    log("Grouping data by (time, lat, lon)")
+    log("[GRID] Grouping data by (time, lat, lon)")
     grp = df.groupby(["time", "lat", "lon"])
     agg = grp.aggregate(aggregators)
     if len(aggregators) > 1:
@@ -297,14 +296,14 @@ def grid_dataframe_to_target(
         agg.columns = [col[0] for col in agg.columns.values]
 
     if sparse:
-        log("Output will be sparse")
+        log("[GRID] Output will be sparse")
         xds = xr.Dataset.from_dataframe(agg, sparse=True)
     else:
-        log("Output will be dense")
+        log("[GRID] Output will be dense")
         xds = xr.Dataset.from_dataframe(agg).reindex_like(target)
 
     if flipped:
-        log("Longitude was flipped for gridding, flipping back to -180 : 180")
+        log("[GRID] Longitude was flipped for gridding, flipping back to -180 : 180")
         xds = xds.conform.lon_180W_180E()
     return xds
 
