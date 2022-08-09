@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+from .. import logger
 
 
 def grid_flat_data(*data_columns, sparse=True, **coordinate_columns):
@@ -217,7 +218,7 @@ def grid_dataframe_to_target(
     lon,
     cols,
     target,
-    verbose=False,
+    verbosity=20,
     sparse=False,
     aggregators=["mean", "std", "count"],
 ):
@@ -245,20 +246,15 @@ def grid_dataframe_to_target(
     """
     import numpy as np
 
-    if verbose:
-        print("\t{}: loading".format(target.name), end=", ")
+    def log(msg):
+        logger.log(verbosity, msg)
 
-    print("binning data", end=", ")
+    log(verbosity, "\t{}: loading".format(target.name))
+    log("binning data")
     time_name, lat_name, lon_name = target.dims
 
-    if any(target[lon_name] < 0):
-        flipped = True
-    else:
-        flipped = False
-
-    target = target.assign_coords(**{lon_name: lambda x: x[lon_name] % 360}).sortby(
-        lon_name
-    )
+    flipped = True if any(target[lon_name] < 0) else False
+    target = target.conform.lon_0E_360E()
     lon = lon % 360
 
     t = target[time_name].values
@@ -292,6 +288,7 @@ def grid_dataframe_to_target(
     df["lat"] = tyx["lat"].values
     df["lon"] = tyx["lon"].values
 
+    log("Grouping data by (time, lat, lon)")
     grp = df.groupby(["time", "lat", "lon"])
     agg = grp.aggregate(aggregators)
     if len(aggregators) > 1:
@@ -300,16 +297,15 @@ def grid_dataframe_to_target(
         agg.columns = [col[0] for col in agg.columns.values]
 
     if sparse:
-        print("sparse")
+        log("Output will be sparse")
         xds = xr.Dataset.from_dataframe(agg, sparse=True)
     else:
+        log("Output will be dense")
         xds = xr.Dataset.from_dataframe(agg).reindex_like(target)
 
     if flipped:
-        xds = xds.assign_coords(
-            **{lon_name: lambda x: (x[lon_name] + 180) % 360 - 180}
-        ).sortby(lon_name)
-
+        log("Longitude was flipped for gridding, flipping back to -180 : 180")
+        xds = xds.conform.lon_180W_180E()
     return xds
 
 
