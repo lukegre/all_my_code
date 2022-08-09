@@ -267,7 +267,9 @@ def grid_dataframe_to_target(
     ybins = np.linspace(y[0] - dy / 2, y[-1] + dy / 2, y.size + 1)
 
     dt = np.nanmean(np.diff(t).astype(int)).astype("timedelta64[ns]")
-    tbins = np.arange(t[0], t[-1] + dt, dt, dtype="datetime64[ns]")
+    # the 1.2 is an error factor to account for sometimes the time doesnt
+    # create the right number of bins
+    tbins = np.arange(t[0], t[-1] + dt * 1.2, dt, dtype="datetime64[ns]")
 
     # array of indicies based on cutting data
     tyx = pd.DataFrame(
