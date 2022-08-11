@@ -31,8 +31,7 @@ def asdense(xds_sparse):
 
     if isinstance(xds_sparse, xr.DataArray):
         dense = xds_sparse.data.todense()
-        xda_dense = xds_sparse.copy()
-        xda_dense.values = dense
+        xda_dense = xds_sparse.copy(data=dense)
 
         return xda_dense
 
@@ -112,9 +111,9 @@ def distance(lon, lat, ref_idx=None):
         dlon = lon[ref_idx] - lon
         dlat = lat[ref_idx] - lat
 
-    a = np.sin(dlat / 2) ** 2 + np.sin(dlon / 2) ** 2 * np.cos(
-        lat[i1]
-    ) * np.cos(lat[i2])
+    a = np.sin(dlat / 2) ** 2 + np.sin(dlon / 2) ** 2 * np.cos(lat[i1]) * np.cos(
+        lat[i2]
+    )
 
     angles = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 

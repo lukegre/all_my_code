@@ -2,6 +2,7 @@ from numpy import ndarray
 import pandas as pd
 import xarray as xr
 from functools import wraps as _wraps
+from .. import logger
 
 
 def _esper_lir_arrays(
@@ -340,7 +341,7 @@ def fetch_esper_data_as_xarray(lir_var):
     # first we check if the processed coefficients are on disk
     sname = path.expanduser() / name.replace(".mat", ".nc")
     if sname.is_file():
-        print(f"loading exising coefs for {lir_var}: {sname}")
+        logger.log(20, f"LIR: loading exising coefs for {lir_var}: {sname}")
         return open_dataset(sname)
     # if not, then we download the file and process
     else:

@@ -249,7 +249,7 @@ def grid_dataframe_to_target(
     def log(msg):
         logger.log(verbosity, msg)
 
-    log(f"[GRID] creating bins for {target.name}")
+    log(f"GRID: creating bins for {target.name}")
     time_name, lat_name, lon_name = target.dims
 
     flipped = True if any(target[lon_name] < 0) else False
@@ -270,7 +270,7 @@ def grid_dataframe_to_target(
     mask = (time >= t0) & (time <= t1)
     t0, t1 = [pd.Timestamp(t) for t in [t0, t1]]
     log(
-        "[GRID] clipping dataframe time to: "
+        "GRID: clipping dataframe time to: "
         f"{t0:%Y-%m-%d} - {t1:%Y-%m-%d} "
         f"(n={mask.size} -> {mask.sum()})"
     )
@@ -303,7 +303,7 @@ def grid_dataframe_to_target(
     df["lat"] = tyx["lat"].values
     df["lon"] = tyx["lon"].values
 
-    log("[GRID] Grouping data by (time, lat, lon)")
+    log("GRID: Grouping data by (time, lat, lon)")
     grp = df.groupby(["time", "lat", "lon"])
     agg = grp.aggregate(aggregators)
     if len(aggregators) > 1:
@@ -312,14 +312,14 @@ def grid_dataframe_to_target(
         agg.columns = [col[0] for col in agg.columns.values]
 
     if sparse:
-        log("[GRID] Output will be sparse")
+        log("GRID: Output will be sparse")
         xds = xr.Dataset.from_dataframe(agg, sparse=True)
     else:
-        log("[GRID] Output will be dense")
+        log("GRID: Output will be dense")
         xds = xr.Dataset.from_dataframe(agg).reindex_like(target)
 
     if flipped:
-        log("[GRID] Longitude was flipped for gridding, flipping back to -180 : 180")
+        log("GRID: Longitude was flipped for gridding, flipping back to -180 : 180")
         xds = xds.conform.lon_180W_180E()
 
     xds["time_bounds"] = xr.DataArray(
@@ -355,7 +355,7 @@ class PandasGridder:
 
         log = lambda msg: logger.log(verbosity, msg)
 
-        log("[GRID] Checking that dataframe and target array are compatible")
+        log("GRID: Checking that dataframe and target array are compatible")
         dims = ["time", "lat", "lon"]
         for key in dims:
             assert (
@@ -368,7 +368,7 @@ class PandasGridder:
             b = target_array[key].values[0]
             a - b  # an error will be raised if they are not the same type
 
-        log("[GRID] Getting dimension arrays for the gridding")
+        log("GRID: Getting dimension arrays for the gridding")
         t = df["time"]
         y = df["lat"]
         x = df["lon"]
