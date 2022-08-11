@@ -1,0 +1,10 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Gregor
+    given-names: Luke
+    orcid: https://orcid.org/0000-0001-6071-1857
+title: lukegre/all_my_code: Freeze repo for Yun et al. (2022) 
+version: yun22
+date-released: 2022-08-11
+            
