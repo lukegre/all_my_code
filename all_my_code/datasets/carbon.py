@@ -59,6 +59,9 @@ def _download_ethz_data(save_dir="~/Data/cached/", version="2021"):
     elif str(version) == "2021":
         fname = "OceanSODA-ETHZ_GRaCER_v2021a_1982-2020.nc"
         url += f"3.3/data/0-data/{fname}"
+    elif str(version) == "2022":
+        fname = "OceanSODA-ETHZ_GRaCER_v2022gcb_1982-2021.nc"
+        url = "https://figshare.com/ndownloader/files/36723312?private_link=89374797e3474264282a"  # noqa
 
     name = retrieve(
         url, None, fname, path=save_dir, downloader=HTTPDownloader(progressbar=True)
@@ -67,7 +70,7 @@ def _download_ethz_data(save_dir="~/Data/cached/", version="2021"):
     return name
 
 
-def oceansoda_ethz(save_dir="~/Data/cached/", version="2021", salt_norm=34.5):
+def oceansoda_ethz(save_dir="~/Data/cached/", version="2022", salt_norm=34.5):
     """
     Downloads and homogenises variable names for the different ETHZ versions
     (2020, 2021). Names are changed to match the v2021 output
@@ -90,7 +93,7 @@ def oceansoda_ethz(save_dir="~/Data/cached/", version="2021", salt_norm=34.5):
     """
 
     fname = _download_ethz_data(save_dir, version)
-    ds = xr.open_dataset(fname)
+    ds = xr.open_mfdataset(fname, parallel=True)
 
     # unifying 2020 to 2021 naming (2020 names are not same as 2021)
     if str(version) == "2020":
@@ -106,14 +109,24 @@ def oceansoda_ethz(save_dir="~/Data/cached/", version="2021", salt_norm=34.5):
             TAstd="talk_uncert",
             pCO2std="spco2_uncert",
         )
-
-    elif str(version) == "2021":
+    elif str(version) >= "2021":
         unified_names = dict(talk="alk", talk_uncert="alk_uncert")
 
     ds = ds.rename(unified_names)
 
-    print("[H+], sDIC and sALK calculated (normed to local long-term mean)")
-    ds["h"] = (10 ** (-ds.ph_total) * 1e9).assign_attrs(units="nmol/kg")
+    if str(version) <= "2021":
+        print("[H+], sDIC and sALK calculated (normed to local long-term mean)")
+        ds["h"] = (10 ** (-ds.ph_total) * 1e9).assign_attrs(
+            units="nmol/kg",
+            description=(
+                "note that H+ is calculated from pH total and is thus not " "pure H+."
+            ),
+        )
+    else:
+        ds["h"] = (10 ** (-ds.ph_free) * 1e9).assign_attrs(
+            units="nmol/kg", description=("H+ is calculated from pH free")
+        )
+
     if isinstance(salt_norm, str):
         if salt_norm == "time":
             s0_norm = ds.salinity.mean("time")

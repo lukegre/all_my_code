@@ -9,7 +9,7 @@ while len(logger.handlers) > 0:
 formatter = logging.Formatter("[%(name)s] %(message)s")
 handler = logging.StreamHandler(sys.stderr)
 handler.setFormatter(formatter)
-handler.setLevel(logging.WARNING)
+handler.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 from pkg_resources import DistributionNotFound, get_distribution
