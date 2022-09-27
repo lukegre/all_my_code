@@ -410,3 +410,67 @@ def basins_sans_southern_ocean(resolution=1, save_dir=gettempdir()):
 
     mask_sans_so = (atlantic * 1) + (pacific * 2) + (indian * 3) + (arctic * 4)
     return mask_sans_so
+
+
+def longhurst_provinces(res=1, save_dir=gettempdir()):
+    from pathlib import Path
+    from xarray import open_dataset, merge
+    from ..files.shapefiles import add_shape_coord_from_data_array
+    import geopandas as gpd
+
+    sname = Path(f"{save_dir}/longhurst_provinces_{res*100:.0f}km.nc")
+
+    if sname.is_file():
+        return open_dataset(sname)
+
+    # getting shapefile information
+    shapefile_path = _download_longhurst_shapefile(save_dir)
+    shapefile_name = "Longhurst_world_v4_2010"
+
+    # regions are used as a template, but are then dropped a few steps later
+    regions = fay_any_mckinley_2014_biomes(resolution=res)
+    regions = add_shape_coord_from_data_array(regions, shapefile_path, shapefile_name)
+
+    gdf = gpd.read_file(shapefile_path)
+
+    longhurst = regions[["Longhurst_world_v4_2010"]].rename(
+        Longhurst_world_v4_2010="provinces"
+    )
+    descriptions = (
+        gdf.iloc[:, :-1]
+        .to_xarray()
+        .rename(
+            ProvCode="province_code",
+            ProvDescr="province_descript",
+            index="province_num",
+        )
+    )
+    longhurst["provinces"] = longhurst.provinces.fillna(-1).astype("int16")
+    longhurst = merge([longhurst, descriptions])
+    longhurst.attrs = dict(
+        description="Longhurst provinces interpolated from a shape file",
+        source="https://geo.abds.is/geonetwork/srv/api/records/e903ac58-ff9b-40aa-b2f6-1592a46b4f41/attachments/Longhurst_world_v4_2010.zip",  # noqa
+        author="gregorl@ethz.ch",
+        date="2022-09-14",
+        citation="Longhurst, A.R. (2006). Ecological Geography of the Sea. 2nd Edition. Academic Press, San Diego, 560p.",  # noqa
+    )
+
+    compression = {k: dict(complevel=1, zlib=True) for k in longhurst}
+    longhurst.to_netcdf(sname, encoding=compression)
+
+    return longhurst
+
+
+def _download_longhurst_shapefile(save_dir=gettempdir()):
+    from .. import download_file
+    from pathlib import Path
+
+    shapefile_url = "https://geo.abds.is/geonetwork/srv/api/records/e903ac58-ff9b-40aa-b2f6-1592a46b4f41/attachments/Longhurst_world_v4_2010.zip"  # noqa
+    shapefile_flist = download_file(shapefile_url, path=save_dir)
+    shapefile_name = "Longhurst_world_v4_2010"
+
+    shapefile_path = str(
+        Path([f for f in shapefile_flist if shapefile_name in f][0]).parent
+    )
+
+    return shapefile_path
