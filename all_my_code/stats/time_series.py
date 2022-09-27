@@ -436,12 +436,12 @@ def time_of_emergence_stdev(
     -------
     time_of_emergence : xr.DataArray
         the time of emergence in years
-        
+
     Reference
     ---------
-    Keller, K. M., F. Joos, and C. C. Raible (2014), 
-        Time of emergence of trends in ocean biogeochemistry, 
-        Biogeosciences, 11(13), 3647–3659, 
+    Keller, K. M., F. Joos, and C. C. Raible (2014),
+        Time of emergence of trends in ocean biogeochemistry,
+        Biogeosciences, 11(13), 3647–3659,
         doi:10.5194/bg-11-3647-2014.
     """
 
@@ -465,6 +465,77 @@ def time_of_emergence_stdev(
     )
 
     return toe
+
+
+@apply_to_dataset
+def decompose_modes_of_variability(
+    da,
+    time_dim="time",
+    seasonal_dim="month",
+    interannual_smoother_window_size=None,
+    detrend=False,
+):
+    """
+    Split a time-series into different modes of variability:
+    subseasonal, seasonal, and interannual
+
+    Parameters
+    ----------
+    da: xr.DataArray
+        A data array with a time index/axes
+    time_dim: str
+        the name of the time dimension (must be a np.datetime64 dim)
+    seasonal_dim: str
+        the name of the time step over which to group for
+        the seasonal cycle variability
+    interannual_smoother_window_size: None | int
+        the window size of the smoother that is applied to the
+        deseasonalised data. If None is given, then it will be
+        a one year smoother
+    detrend: bool
+        will detrend with linear regression the data if True,
+        otherwise, the trend will be included
+
+    Returns
+    -------
+    xr.Dataset | xr.DataArray (depending on input type):
+        The output will have an additional dimension called `mode_of_var`
+        with length 4 that contains the following: original_input,
+        subseasonal, seasonal, interannual.
+    """
+    if isinstance(da, xr.DataArray):
+        seas_time = getattr(da[time_dim].dt, seasonal_dim)
+
+        if detrend:
+            da = da.stats.detrend()
+            prefix = "detrended"
+        else:
+            prefix = "original"
+        grp = da.groupby(f"{time_dim}.{seasonal_dim}")
+
+        if interannual_smoother_window_size is None:
+            t = len(grp.groups) * 1
+        elif isinstance(interannual_smoother_window_size, int):
+            t = interannual_smoother_window_size
+        else:
+            raise TypeError("`interannual_smoother_window_size` must be None or int")
+
+        ds = xr.Dataset()
+        seasonal_cycle = grp.mean()
+        deseasonalised = grp - seasonal_cycle
+        interannual = deseasonalised.rolling(
+            **{time_dim: t}, center=True, min_periods=int(t / 4)
+        ).mean()
+
+        ds[f"{prefix}_input"] = da
+        ds["subsesasonal"] = deseasonalised - interannual
+        ds["seasonal"] = seasonal_cycle.sel(**{seasonal_dim: seas_time}).drop(
+            seasonal_dim
+        )
+        ds["interannual"] = interannual
+
+        ds = ds.to_array(dim="mode_of_var")
+        return ds
 
 
 def interannual_variability(da, dim="time"):
