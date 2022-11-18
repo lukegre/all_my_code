@@ -106,7 +106,7 @@ def _grid_flat_data(*data_columns, return_dataaray=True, **coordinate_columns):
     return da.squeeze()
 
 
-def colocate_dataarray(da, verbose=True, **coords):
+def colocate_dataarray(da, verbose=True, warn_too_big=True, **coords):
     """
     Colocates SOCAT data with data data in a netCDF (xarray.DataArray).
 
@@ -165,7 +165,7 @@ def colocate_dataarray(da, verbose=True, **coords):
     ranges = {k: slice(np.nanmin(coords[k]), np.nanmax(coords[k])) for k in keys}
 
     xdr = da.sel(**ranges)
-    if xdr.size > (720 * 1440 * 365 * 2):
+    if (xdr.size > (720 * 1440 * 365 * 5)) and warn_too_big:
         raise ValueError(
             f"the range of the input coordinates is too large to load for the "
             f"given dataarray {da.name} with a shape of {da.shape}"
