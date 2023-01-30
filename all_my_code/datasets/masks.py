@@ -73,7 +73,7 @@ def reccap2_regions(resolution=1, save_dir=gettempdir()):
 
     url = (
         "https://github.com/RECCAP2-ocean/R2-shared-resources/raw"
-        "/master/data/regions/RECCAP2_region_masks_all_v20220412.nc"
+        "/master/data/regions/RECCAP2_region_masks_all_v20221025.nc"
     )
     fname = download_file(url, path=save_dir, verbosity=2)
     ds = xr.open_dataset(fname)
