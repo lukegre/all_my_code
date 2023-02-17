@@ -2,6 +2,88 @@ import numpy as np
 import xarray as xr
 
 
+def fit_seasonal_cycle_harmonic(da, window_years=3):
+    """fits a seasonal cycle harmonic to data
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        a 1D dataset with time as the dimension
+
+    Returns
+    -------
+    xr.DataArray
+        A fitted output
+    """
+    from scipy.optimize import curve_fit
+    from numpy import cos, sin, pi
+    from numba import njit
+    from pandas import Series, to_datetime, Timedelta
+
+    @njit
+    def fit_seascycle_harmonic(x, a1, a2, a3, a4, a5, a6, a7):
+        """function to fit as defined by Peter"""
+        return (
+            a1
+            + a2 * x
+            + a3 * x**2
+            + a4 * sin(2 * pi * x)
+            + a5 * cos(2 * pi * x)
+            + a6 * sin(4 * pi * x)
+            + a7 * cos(4 * pi * x)
+        )
+
+    # decimal year
+    decimal_year = da.time.dt.dayofyear / 366 + da.time.dt.year
+    da_na = da.assign_coords(time=decimal_year).dropna("time")
+
+    y = da_na.data
+    x = da_na.time.data
+
+    t0 = x.min() // 1
+    t1 = x.max() // 1
+
+    fitted = {}
+    for i0 in np.arange(t0, t1 - 1):
+        i1 = i0 + window_years
+
+        # mask limits x and y to window years
+        wmask = (x > i0) & (x < i1)
+        coefs = curve_fit(
+            fit_seascycle_harmonic,
+            x[wmask],
+            y[wmask],
+            p0=[300, 1.1, 0.01, -3, -7, 5.5, 5.5],
+        )[0]
+
+        # create estimates
+        new_x = np.arange(i0, i1, 1 / 12)
+        new_y = fit_seascycle_harmonic(new_x, *coefs)
+        new = {round(k, 2): v for k, v in zip(new_x, new_y)}
+
+        # now the new data needs to be added to the specific time (k)
+        for k in new:
+            if k not in fitted:
+                fitted[k] = [new[k]]
+            else:
+                fitted[k] += (new[k],)
+    # for each key (time), take the average of the 3 or less points
+    for k in fitted:
+        fitted[k] = np.nanmean(fitted[k])
+
+    # convert the fittedput to an xarray.dataarray
+    fitted = Series(fitted).to_xarray().rename(index="time")
+
+    year = fitted.time.astype(int).data // 1
+    dayofyear = ((fitted.time.data - year) * 366).astype(int) + 1
+    full_time = to_datetime(
+        [("{}-{}".format(*s)) for s in zip(year, dayofyear)], format="%Y-%j"
+    )
+    harmonic_fitted = fitted.assign_coords(time=full_time + Timedelta("14D"))
+
+    return harmonic_fitted
+
+
 def seascycl_fit_graven(da, n_years=3, dim="time"):
     """
     Fits a seasonal cycle to data using cos and sin functions.

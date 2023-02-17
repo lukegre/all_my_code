@@ -18,13 +18,14 @@ def socat_gridded(
 
     if not os.path.exists(fpath):
         dpath = download_file(url, save_dir, verbosity=2)
-        ds = xr.open_dataset(dpath).drop("tmnth_bnds")
+        ds = xr.open_mfdataset(dpath).drop("tmnth_bnds")
         ds.to_netcdf_with_compression(fpath)
 
         if delete_intermediate_files:
-            os.remove(dpath)
-            os.remove(zpath)
-            posixpath(dpath).parent.rmdir()
+            for path in dpath:
+                os.remove(path)
+                os.remove(zpath)
+                posixpath(path).parent.rmdir()
 
     return xr.open_dataset(fpath, chunks={}).conform()
 
@@ -60,9 +61,10 @@ def _download_ethz_data(save_dir="~/Data/cached/", version="2021"):
         fname = "OceanSODA-ETHZ_GRaCER_v2021a_1982-2020.nc"
         url += f"3.3/data/0-data/{fname}"
     elif str(version) == "2022":
-        fname = "OceanSODA-ETHZ_GRaCER_v2022gcb_1982-2021.nc"
-        url = "https://figshare.com/ndownloader/files/36723312?private_link=89374797e3474264282a"  # noqa
-
+        fname = "OceanSODA-ETHZ_GRaCER_v2022b_1982-2021.nc"
+        url = "https://figshare.com/ndownloader/files/38891904?private_link=89374797e3474264282a"  # noqa
+    else:
+        raise ValueError("version must be [2020, 2021, 2022]")
     name = retrieve(
         url, None, fname, path=save_dir, downloader=HTTPDownloader(progressbar=True)
     )
@@ -111,6 +113,8 @@ def oceansoda_ethz(save_dir="~/Data/cached/", version="2022", salt_norm=34.5):
         )
     elif str(version) >= "2021":
         unified_names = dict(talk="alk", talk_uncert="alk_uncert")
+    else:
+        raise ValueError("version must be [2020, 2021, 2022]")
 
     ds = ds.rename(unified_names)
 
@@ -134,13 +138,16 @@ def oceansoda_ethz(save_dir="~/Data/cached/", version="2022", salt_norm=34.5):
             raise ValueError(f"salt_norm must be 'time' or a float, not {salt_norm}")
     elif isinstance(salt_norm, (float, int)):
         s0_norm = salt_norm
+    else:
+        raise TypeError("salt_norm must be float or int or str")
+
     ds["sdic"] = ds.dic / ds.salinity * s0_norm
     ds["salk"] = ds.alk / ds.salinity * s0_norm
 
     return ds
 
 
-def seaflux(var_name="pco2atm", save_dir="~/Data/cached/"):
+def seaflux(var_name: str = "pco2atm", save_dir="~/Data/cached/"):
     """
     Downloads the SeaFlux dataset from Zenodo
 
@@ -185,7 +192,7 @@ def seaflux(var_name="pco2atm", save_dir="~/Data/cached/"):
         assert var_name in variables.keys(), msg
         url = variables[var_name]
         fname = download_file(url, path=save_dir, verbosity=2)
-        return xr.open_dataset(fname, chunks={}).conform()
+        return xr.open_mfdataset(fname, chunks={}).conform()
 
 
 def flux_weighting(wind=["CCMP2", "ERA5", "JRA55"], save_dir="~/Data/cached/"):

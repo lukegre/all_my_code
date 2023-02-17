@@ -32,6 +32,9 @@ def sensitivities(ds, n_jobs=24, pardim="time", verbose=True, **kwargs):
     """
     from joblib import delayed, Parallel
 
+    if "K1K2_constants" not in kwargs:
+        kwargs["K1K2_constants"] = 4
+
     if n_jobs == 1:
         kwargs.update(verbose=verbose)
         return _sensitivities(ds, **kwargs)
@@ -108,20 +111,20 @@ def _sensitivities(ds_co2sys_inputs, **kwargs):
 
     sensitive = out[list(sensitive_keep)].rename(sensitive_keep)
     gamma = xr.Dataset()
-    gamma["dic"] = variables.dic / sensitive.gamma_dic / 1e6
-    gamma["alk"] = variables.alk / sensitive.gamma_alk / 1e6
+    gamma["dic"] = 1 / sensitive.gamma_dic * 1e6
+    gamma["alk"] = 1 / sensitive.gamma_alk * 1e6
     gamma["temp"] = variables.temperature * 0 + 0.0423
     gamma["fw"] = 1 + sensitive.gamma_dic + sensitive.gamma_alk
     # omega is Aragonite sensitivity
     omega = xr.Dataset()
-    omega["dic"] = variables.dic / sensitive.omega_dic / 1e6
-    omega["alk"] = variables.alk / sensitive.omega_alk / 1e6
+    omega["dic"] = 1 / sensitive.omega_dic * 1e6
+    omega["alk"] = 1 / sensitive.omega_alk * 1e6
     omega["temp"] = variables.temperature * 0 + 0.0052
     omega["fw"] = 1 + sensitive.omega_dic + sensitive.omega_alk
     # beta is [H+] sensitivity
     beta = xr.Dataset()
-    beta["dic"] = variables.dic / sensitive.beta_dic / 1e6
-    beta["alk"] = variables.alk / sensitive.beta_alk / 1e6
+    beta["dic"] = 1 / sensitive.beta_dic * 1e6
+    beta["alk"] = 1 / sensitive.beta_alk * 1e6
     beta["temp"] = variables.temperature * 0 + 0.0356
     beta["fw"] = 1 + sensitive.beta_dic + sensitive.beta_alk
 
