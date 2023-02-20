@@ -114,19 +114,19 @@ def _sensitivities(ds_co2sys_inputs, **kwargs):
     gamma["dic"] = 1 / (sensitive.gamma_dic * 1e6)
     gamma["alk"] = 1 / (sensitive.gamma_alk * 1e6)
     gamma["temp"] = variables.temperature * 0 + 0.0423
-    gamma["fw"] = 1 + sensitive.gamma_dic + sensitive.gamma_alk
+    gamma["fw"] = 1 + gamma.gamma_dic + gamma.gamma_alk
     # omega is Aragonite sensitivity
     omega = xr.Dataset()
     omega["dic"] = 1 / (sensitive.omega_dic * 1e6)
     omega["alk"] = 1 / (sensitive.omega_alk * 1e6)
     omega["temp"] = variables.temperature * 0 + 0.0052
-    omega["fw"] = 1 + sensitive.omega_dic + sensitive.omega_alk
+    omega["fw"] = 1 + omega.omega_dic + omega.omega_alk
     # beta is [H+] sensitivity
     beta = xr.Dataset()
     beta["dic"] = 1 / (sensitive.beta_dic * 1e6)
     beta["alk"] = 1 / (sensitive.beta_alk * 1e6)
     beta["temp"] = variables.temperature * 0 + 0.0356
-    beta["fw"] = 1 + sensitive.beta_dic + sensitive.beta_alk
+    beta["fw"] = 1 + beta.beta_dic + beta.beta_alk
 
     sensitive = xr.merge(
         [
