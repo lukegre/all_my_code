@@ -283,3 +283,22 @@ def smooth_monthly(da, **kwargs):
     b = a.rolling_exp(**kwargs).mean()
     c = b.dropna("time")
     return c
+
+
+def savgol_filter(da, dim="time", window_length=12, polyorder=2, **kwargs):
+    from scipy import signal
+    import xarray as xr
+
+    kwargs.update(
+        window_length=window_length,
+        polyorder=polyorder,
+    )
+
+    return xr.apply_ufunc(
+        signal.savgol_filter,
+        da.load(),
+        input_core_dims=[[dim]],
+        output_core_dims=[[dim]],
+        kwargs=kwargs,
+        dask="parallelized",
+    ).transpose(*da.dims)

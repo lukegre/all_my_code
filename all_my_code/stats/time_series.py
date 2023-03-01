@@ -467,8 +467,7 @@ def time_of_emergence_stdev(
     return toe
 
 
-@apply_to_dataset
-def decompose_modes_of_variability(
+def _decompose_modes_of_variability(
     da,
     time_dim="time",
     seasonal_dim="month",
@@ -591,3 +590,87 @@ def anom(da, dim="time", ref=None):
     anom = da - ref
 
     return anom
+
+
+@apply_to_dataset
+def modes_of_variability(da: xr.DataArray, dim: str = "time") -> xr.DataArray:
+    """
+    Decompose a data array into different modes of variability.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        The input data array to decompose.
+    dim : str, optional
+        The dimension along which to perform the decomposition (default is 'time').
+
+    Returns
+    -------
+    xr.DataArray
+        A new data array containing the different modes of variability:
+        mode_of_var = [subseasonal, seasonal, subdecadal, decadal, trend]
+    """
+
+    def savgol(da, dim="time", window_length=12, polyorder=2, iter=1, **kwargs):
+        from .smoothen import savgol_filter
+
+        for i in range(iter):
+            print(".", end="")
+            da = savgol_filter(da, dim, window_length, polyorder, **kwargs)
+        return da
+
+    # Fill missing values in the input data array using forward and backward filling.
+    da = da.ffill(dim).bfill(dim)
+
+    # Calculate the number of years in the input data array and the number
+    # of time steps per year.
+    n_years = np.unique(da[dim].dt.year).size
+    n_steps_per_year = np.int32(np.around(da[dim].size / n_years))
+
+    # Determine the seasonal dimension based on the number of time steps per year.
+    season_dim = "month" if n_steps_per_year == 12 else "dayofyear"
+
+    # Compute the mean and trend of the input data array and detrend it.
+    trend = da.stats.trend(dim).compute()
+    detrended = da - trend
+
+    # Group the detrended data by the seasonal dimension and calculate
+    # the seasonal average for each group.
+    grp = detrended.groupby(f"{dim}.{season_dim}")
+    seasonal_avg = grp.mean(dim)
+    seasonal = seasonal_avg.sel(
+        **{season_dim: getattr(da[dim].dt, season_dim)}, drop=True
+    )
+    deseasonalised = detrended - seasonal
+
+    # Apply the Savitzky-Golay filter to the deseasonalized data to
+    # extract the subdecadal and decadal components.
+    ts = seasonal_avg[season_dim].size
+    subdecadal = savgol(deseasonalised, window_length=ts * 2, iter=3)
+    decadal = savgol(subdecadal, window_length=ts * 15, iter=2)
+
+    # Separate the subseasonal component from the deseasonalized data.
+    subseasonal = deseasonalised - subdecadal
+    subdecadal = subdecadal - decadal
+
+    # Concatenate the different components along a new dimension and assign them labels.
+    mov = xr.concat([subseasonal, seasonal, subdecadal, decadal, trend], "mode_of_var")
+    mov = mov.assign_coords(
+        mode_of_var=["subseasonal", "seasonal", "subdecadal", "decadal", "trend"]
+    )
+
+    mov = mov.assign_attrs(
+        description=(
+            f"A decopmosition of a time series. The following steps are applied: "
+            f"1) remove trend and mean. 2) remove seasonal cycle by averaging "
+            f"along the `seasonal_dimension`. 3) remove subdecadal variability "
+            f"with a Savitzky-Golay filter with a 2-year window (order=2, "
+            f"window={ts*2}, iterations=3). 4) remove decadal variability by "
+            f"applying a SavGol filter with a 15-year window to subdecadal data "
+            f"(order=2, window={ts*15}, iterations=2). "
+        ),
+        seasonal_dimension=season_dim,
+        time_steps_per_year=n_steps_per_year,
+    )
+
+    return mov
