@@ -20,7 +20,7 @@ _func_registry = [
     time_series.time_of_emergence_stdev,
     time_series.corr,
     time_series.auto_corr,
-    time_series.decompose_modes_of_variability,
+    time_series.modes_of_variability,
     seas_cycle.seascycl_fit_graven,
     seas_cycle.seascycl_fit_climatology,
     outliers.mask_outliers_iqr,
