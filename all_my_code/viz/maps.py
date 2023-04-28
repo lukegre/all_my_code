@@ -151,7 +151,7 @@ def fill_lon_gap(xds):
     return xds
 
 
-@xr.register_dataarray_accessor("map")
+@xr.register_dataarray_accessor("geo")
 class Mapping(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
@@ -159,10 +159,10 @@ class Mapping(object):
 
     @wraps(map_subplot)
     def __call__(self, **kwargs):
-        """Plot 2D data on a map. See map.pcolormesh for all call arguments"""
-        return self.pcolormesh(**kwargs)
+        """Plot 2D data on a map. See map.imshow for all call arguments"""
+        return self.imshow(**kwargs)
 
-    def _plot(self, plot_func="pcolormesh", **kwargs):
+    def _plot(self, plot_func="imshow", **kwargs):
         da = self._obj.astype(float)
         da = da.squeeze()
         if np.ndim(da) != 2:
@@ -203,6 +203,10 @@ class Mapping(object):
     @wraps(map_subplot)
     def pcolormesh(self, **kwargs):
         return self._plot(**kwargs, plot_func="pcolormesh")
+
+    @wraps(map_subplot)
+    def imshow(self, **kwargs):
+        return self._plot(**kwargs, plot_func="imshow")
 
     @wraps(map_subplot)
     def contour(self, **kwargs):
