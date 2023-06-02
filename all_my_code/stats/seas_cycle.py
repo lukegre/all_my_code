@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 
 
-def fit_seasonal_cycle_harmonic(da, window_years=3):
+def fit_seasonal_cycle_harmonic(da, time_out=None, window_years=3):
     """fits a seasonal cycle harmonic to data
 
     Parameters
@@ -17,10 +17,11 @@ def fit_seasonal_cycle_harmonic(da, window_years=3):
     """
     from scipy.optimize import curve_fit
     from numpy import cos, sin, pi
-    from numba import njit
+
+    # from numba import njit
     from pandas import Series, to_datetime, Timedelta
 
-    @njit
+    # @njit
     def fit_seascycle_harmonic(x, a1, a2, a3, a4, a5, a6, a7):
         """function to fit as defined by Peter"""
         return (
@@ -36,6 +37,9 @@ def fit_seasonal_cycle_harmonic(da, window_years=3):
     # decimal year
     decimal_year = da.time.dt.dayofyear / 366 + da.time.dt.year
     da_na = da.assign_coords(time=decimal_year).dropna("time")
+
+    if time_out is not None:
+        time_out = time_out.dayofyear / 366 + time_out.year
 
     y = da_na.data
     x = da_na.time.data
@@ -57,7 +61,10 @@ def fit_seasonal_cycle_harmonic(da, window_years=3):
         )[0]
 
         # create estimates
-        new_x = np.arange(i0, i1, 1 / 12)
+        if time_out is None:
+            new_x = np.arange(i0, i1, 1 / 12)
+        else:
+            new_x = time_out[(time_out > i0) & (time_out < i1)].astype(float)
         new_y = fit_seascycle_harmonic(new_x, *coefs)
         new = {round(k, 2): v for k, v in zip(new_x, new_y)}
 
