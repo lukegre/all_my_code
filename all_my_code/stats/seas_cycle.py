@@ -2,24 +2,33 @@ import numpy as np
 import xarray as xr
 
 
-def fit_seasonal_cycle_harmonic(da, time_out=None, window_years=3):
+def fit_seasonal_cycle_harmonic(da, target_time=12, dim="time", window_years=3):
     """fits a seasonal cycle harmonic to data
 
     Parameters
     ----------
     da : xr.DataArray
         a 1D dataset with time as the dimension
+    dim : str
+        time dimension
+    target_time : pd.DatetimeIndex, float
+        can be either a float or a pd.DatetimeIndex. if a float,
+        it represents the size of the time step as a fraction of a
+        year. If it's a pd.DatetimeIndex, then the new output will
+        be interpolated onto that new time stamp.
 
     Returns
     -------
     xr.DataArray
-        A fitted output
+        A fitted output with time either as target_time as inputted,
+        or if target_time is an integer, then as a datetime array
+        centered roughly to the window width of the time step.
     """
     from scipy.optimize import curve_fit
     from numpy import cos, sin, pi
 
     # from numba import njit
-    from pandas import Series, to_datetime, Timedelta
+    from pandas import Series, DatetimeIndex
 
     # @njit
     def fit_seascycle_harmonic(x, a1, a2, a3, a4, a5, a6, a7):
@@ -38,17 +47,22 @@ def fit_seasonal_cycle_harmonic(da, time_out=None, window_years=3):
     decimal_year = da.time.dt.dayofyear / 366 + da.time.dt.year
     da_na = da.assign_coords(time=decimal_year).dropna("time")
 
-    if time_out is not None:
-        time_out = time_out.dayofyear / 366 + time_out.year
-
     y = da_na.data
     x = da_na.time.data
 
     t0 = x.min() // 1
     t1 = x.max() // 1
 
+    if isinstance(target_time, DatetimeIndex):
+        time_out = target_time.dayofyear / 366 + target_time.year
+    elif isinstance(target_time, (int, float)):
+        time_step = 1 / target_time
+        time_out = np.arange(t0 + time_step / 2, t1, time_step)
+    else:
+        raise TypeError("target_time must be int or pd.DateTimeIndex")
+
     fitted = {}
-    for i0 in np.arange(t0, t1 - 1):
+    for i0 in np.arange(t0, t1 + 1):
         i1 = i0 + window_years
 
         # mask limits x and y to window years
@@ -61,12 +75,10 @@ def fit_seasonal_cycle_harmonic(da, time_out=None, window_years=3):
         )[0]
 
         # create estimates
-        if time_out is None:
-            new_x = np.arange(i0, i1, 1 / 12)
-        else:
-            new_x = time_out[(time_out > i0) & (time_out < i1)].astype(float)
+        new_x = time_out[(time_out >= i0) & (time_out <= i1)].astype(float)
         new_y = fit_seascycle_harmonic(new_x, *coefs)
-        new = {round(k, 2): v for k, v in zip(new_x, new_y)}
+
+        new = {_decimal_year_to_datetime(k): v for k, v in zip(new_x, new_y)}
 
         # now the new data needs to be added to the specific time (k)
         for k in new:
@@ -75,20 +87,13 @@ def fit_seasonal_cycle_harmonic(da, time_out=None, window_years=3):
             else:
                 fitted[k] += (new[k],)
     # for each key (time), take the average of the 3 or less points
+
     for k in fitted:
         fitted[k] = np.nanmean(fitted[k])
-
     # convert the fittedput to an xarray.dataarray
     fitted = Series(fitted).to_xarray().rename(index="time")
 
-    year = fitted.time.astype(int).data // 1
-    dayofyear = ((fitted.time.data - year) * 366).astype(int) + 1
-    full_time = to_datetime(
-        [("{}-{}".format(*s)) for s in zip(year, dayofyear)], format="%Y-%j"
-    )
-    harmonic_fitted = fitted.assign_coords(time=full_time + Timedelta("14D"))
-
-    return harmonic_fitted
+    return fitted
 
 
 def seascycl_fit_graven(da, n_years=3, dim="time"):
@@ -268,3 +273,16 @@ def _get_number_of_time_steps_in_year(time, raise_if_uneven=True):
         raise ValueError(f"time array is not evenly spaced: {time}")
     else:
         return counts[0]
+
+
+def _decimal_year_to_datetime(decimal_year):
+    from datetime import datetime, timedelta
+    from pandas import Timestamp
+
+    t = decimal_year
+    year = int(t)
+    ndays_in_year = 365 if (year % 4) else 366
+    day = int(np.around((t - year) * ndays_in_year)) - 1
+    time = Timestamp(datetime(int(year), 1, 1) + timedelta(days=day))
+
+    return time
