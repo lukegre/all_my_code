@@ -337,4 +337,18 @@ def get_area(da, lat_name="lat", lon_name="lon"):
     return out
 
 
-_make_xarray_accessor("spatial", [average_area_weighted, aggregate_region, get_area])
+def interp_lon_gap(da, **new_coords):
+
+    x = da.lon.values
+    dx = da.lon.diff("lon").values.mean()
+    expanded_lon = np.r_[x[-1], x, x[0]]
+    new_lon = np.r_[x[0] - dx, x, x[-1] + dx]
+
+    da_interp = da.sel(lon=expanded_lon).assign_coords(lon=new_lon).interp(**new_coords)
+
+    return da_interp
+
+
+_make_xarray_accessor(
+    "spatial", [average_area_weighted, aggregate_region, get_area, interp_lon_gap]
+)
