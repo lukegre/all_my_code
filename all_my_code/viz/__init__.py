@@ -7,6 +7,7 @@ from . import utils
 from matplotlib import pyplot as plt
 from .maps import map_subplot, fill_lon_gap, rcMaps
 from . import cmaps
+from .cmaps import lighten_color
 
 
 def _create_colormap_dict():

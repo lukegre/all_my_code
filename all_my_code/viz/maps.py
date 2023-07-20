@@ -174,7 +174,6 @@ class Mapping(object):
         da = da.assign_coords(lon=lambda x: x[self._lon_name] % 360).sortby(
             self._lon_name
         )
-        da = fill_lon_gap(da)
 
         self._get_cbar_kwargs(kwargs)
         map_kwargs = self._get_map_kwargs(kwargs)
