@@ -32,7 +32,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 rcMaps = {
-    # these are specific to the map_subplot function
+    # these are specific to the geo_subplot function
     "proj": crs.PlateCarree(central_longitude=0),
     "land_color": "none",
     "coast_res": "110m",
@@ -45,7 +45,7 @@ rcMaps = {
 }
 
 
-def map_subplot(
+def geo_subplot(
     pos=111,
     proj=rcMaps["proj"],
     round=rcMaps["round"],
@@ -157,7 +157,7 @@ class Mapping(object):
         self._obj = xarray_obj
         self._lon_name = self._obj.dims[-1]
 
-    @wraps(map_subplot)
+    @wraps(geo_subplot)
     def __call__(self, **kwargs):
         """Plot 2D data on a map. See map.imshow for all call arguments"""
         return self.imshow(**kwargs)
@@ -177,7 +177,7 @@ class Mapping(object):
 
         self._get_cbar_kwargs(kwargs)
         map_kwargs = self._get_map_kwargs(kwargs)
-        props = dict(robust=rcMaps["robust"], **map_subplot(**map_kwargs))
+        props = dict(robust=rcMaps["robust"], **geo_subplot(**map_kwargs))
         props.update(da_props)
         props.update(kwargs)
         img = getattr(da.plot, plot_func)(**props)
@@ -187,7 +187,6 @@ class Mapping(object):
 
         self.axes = img.axes
         img.set_title = self._text
-        img.set_extent = self._set_extent
         img.figure = self.axes.get_figure()
 
         if "pretty_name" in da.attrs and hasattr(img, "colorbar"):
@@ -195,19 +194,19 @@ class Mapping(object):
 
         return img
 
-    @wraps(map_subplot)
+    @wraps(geo_subplot)
     def contourf(self, **kwargs):
         return self._plot(**kwargs, plot_func="contourf")
 
-    @wraps(map_subplot)
+    @wraps(geo_subplot)
     def pcolormesh(self, **kwargs):
         return self._plot(**kwargs, plot_func="pcolormesh")
 
-    @wraps(map_subplot)
+    @wraps(geo_subplot)
     def imshow(self, **kwargs):
         return self._plot(**kwargs, plot_func="imshow")
 
-    @wraps(map_subplot)
+    @wraps(geo_subplot)
     def contour(self, **kwargs):
         return self._plot(**kwargs, plot_func="contour")
 
@@ -240,29 +239,6 @@ class Mapping(object):
         self.axes.set_title("")
         text = self.axes.text(x, y, s, **kwargs)
         return text
-
-    def _set_extent(self, extent):
-        """
-        A wrapper for setting the extent in map projections
-
-        set_extent is broken for global non-cylindrical projections in cartopy
-
-        Parameters
-        ----------
-        extent : list
-            the [left, right, bottom, top] extents in degrees
-
-        Returns
-        -------
-        plt.line : a line object that extends the figure to the outer limits
-            unless img.axes.set_extent is used
-        """
-        from cartopy.crs import PlateCarree
-
-        x0, x1, y0, y1 = extent
-        return self.axes.plot(
-            [x0, x1], [y0, y1], lw=0, zorder=10, transform=PlateCarree()
-        )
 
     @staticmethod
     def _get_cbar_kwargs(kwargs):
