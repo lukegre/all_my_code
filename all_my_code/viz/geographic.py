@@ -133,8 +133,9 @@ def geo_subplot(
     ax.coastlines(
         resolution=coast_res, color="black", linewidth=rcMaps["coast_lw"], zorder=5
     )
-    ax.outline_patch.set_lw(rcMaps["coast_lw"])
-    ax.outline_patch.set_zorder(5)
+
+    ax.spines["geo"].set_lw(rcMaps["coast_lw"])
+    ax.spines["geo"].set_zorder(5)
 
     return {"ax": ax, "transform": crs.PlateCarree()}
 
