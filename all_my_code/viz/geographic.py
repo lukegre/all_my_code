@@ -104,6 +104,8 @@ def geo_subplot(
         fig.set_size_inches(width, height)
 
     ax = fig.add_subplot(pos, projection=proj, **kwargs)
+    ax._autoscaleXon = False
+    ax._autoscaleYon = False
 
     # makes maps round
     stereo_maps = (
@@ -171,10 +173,6 @@ class Mapping(object):
 
         plot_kwargs = ["levels", "cmap", "vmin", "vmax"]
         da_props = {k: da.attrs[k] for k in plot_kwargs if k in da.attrs}
-
-        da = da.assign_coords(lon=lambda x: x[self._lon_name] % 360).sortby(
-            self._lon_name
-        )
 
         self._get_cbar_kwargs(kwargs)
         map_kwargs = self._get_map_kwargs(kwargs)
