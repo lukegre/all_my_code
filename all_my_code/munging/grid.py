@@ -387,6 +387,40 @@ def resample(ds, func="mean", **kwargs):
 
 
 def _is_interp_best(iy, ix, oy, ox, recommendation="warn"):
+    """
+    Checks if the output grid has significantly lower resolution than the
+    input grid and provides a recommendation.
+
+    Parameters:
+    ----------
+    iy : xarray.DataArray
+        Input grid along the y-axis (latitude).
+    ix : xarray.DataArray
+        Input grid along the x-axis (longitude).
+    oy : xarray.DataArray
+        Output grid along the y-axis (latitude).
+    ox : xarray.DataArray
+        Output grid along the x-axis (longitude).
+    recommendation : str, optional
+        Determines the recommendation behavior. Available options are:
+        - "warn": Shows a warning message (default).
+        - "raise": Raises a ValueError.
+        - "ignore": No action is taken.
+
+    Raises:
+    ------
+    ValueError:
+        - If recommendation is set to "raise" and the output grid has lower resolution.
+
+    Warns:
+    ------
+    UserWarning:
+        - If recommendation is set to "warn" and the output grid has lower resolution.
+
+    Returns:
+    -------
+    None
+    """
     from warnings import warn
 
     idx = ix.diff("lon", 1).median().values
@@ -395,7 +429,7 @@ def _is_interp_best(iy, ix, oy, ox, recommendation="warn"):
     ody = oy.diff("lat", 1).median().values
     ratio_x = odx / idx
     ratio_y = ody / idy
-    if (ratio_x > 2) | (ratio_y > 2):
+    if (ratio_x > 2) or (ratio_y > 2):
         message = (
             "The output grid is less than half the resolution of the input grid. "
             "Interpolation may not be the best approach. "
@@ -410,17 +444,30 @@ def _is_interp_best(iy, ix, oy, ox, recommendation="warn"):
 
 
 def _make_like_array(resolution):
-    import xarray as xr
+    """
+    Generate a gridded DataArray with latitude and longitude
+    coordinates using the specified resolution.
+
+    Parameters
+    ----------
+    resolution : float
+        The desired resolution of the grid in degrees.
+
+    Returns
+    -------
+    xarray.DataArray
+        A gridded DataArray object with latitude and longitude coordinates,
+        where "lat" represents the latitude values and "lon" represents the
+        longitude values. The dimensions are labeled as "lat" and "lon".
+    """
     import numpy as np
+    import xarray as xr
 
     r = resolution
-    grids = xr.DataArray(
-        dims=["lat", "lon"],
-        coords={
-            "lat": np.arange(-90 + r / 2, 90, r),
-            "lon": np.arange(-180 + r / 2, 180, r),
-        },
-    )
+    lat = np.arange(-90 + r / 2, 90, r)
+    lon = np.arange(-180 + r / 2, 180, r)
+
+    grids = xr.DataArray(coords={"lat": lat, "lon": lon}, dims=["lat", "lon"])
 
     return grids
 
