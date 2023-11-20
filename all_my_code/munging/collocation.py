@@ -218,8 +218,8 @@ def grid_dataframe_to_target(
     lon,
     cols,
     target,
+    return_xarray=True,
     verbosity=20,
-    sparse=False,
     aggregators=["mean", "std", "count"],
 ):
     """
@@ -233,9 +233,18 @@ def grid_dataframe_to_target(
         must range from -90 : 90 (will be flipped if 90 : -90)
     lon : float
         must range from -180 : 180
+    cols : pd.DataFrame
+        columns of data to be gridded
     target : xr.DataArray
         a regularly gridded 3D data array with dims (time, lat, lon)
         this will only be used to define the output format.
+    return_xarray : bool [True]
+        if True, returns an xarray object, DataArray or Dataset
+        if False, returns an unsorted pandas.DataFrame
+    verbosity : int [20]
+        verbosity level for logging
+    aggregators : list of str
+        list of aggregators to apply to the data. Default is ["mean", "std", "count"]
 
     Returns
     -------
@@ -304,29 +313,28 @@ def grid_dataframe_to_target(
     df["lon"] = tyx["lon"].values
 
     log("GRID: Grouping data by (time, lat, lon)")
-    grp = df.groupby(["time", "lat", "lon"])
+    grp = df.groupby(["time", "lat", "lon"], sort=False)
     agg = grp.aggregate(aggregators)
     if len(aggregators) > 1:
         agg.columns = ["_".join(col) for col in agg.columns.values]
     else:
         agg.columns = [col[0] for col in agg.columns.values]
 
-    if sparse:
-        log("GRID: Output will be sparse")
-        xds = xr.Dataset.from_dataframe(agg, sparse=True)
-    else:
-        log("GRID: Output will be dense")
+    if return_xarray:
         xds = xr.Dataset.from_dataframe(agg).reindex_like(target)
+        if flipped:
+            log("GRID: Longitude was flipped for gridding, flipping back to -180 : 180")
+            xds = xds.conform.lon_180W_180E()
 
-    if flipped:
-        log("GRID: Longitude was flipped for gridding, flipping back to -180 : 180")
-        xds = xds.conform.lon_180W_180E()
+        xds["time_bounds"] = xr.DataArray(
+            data=np.c_[tbins[:-1], tbins[1:]],
+            dims=("time", "bounds"),
+            coords={"time": t},
+        )
 
-    xds["time_bounds"] = xr.DataArray(
-        data=np.c_[tbins[:-1], tbins[1:]], dims=("time", "bounds"), coords={"time": t}
-    )
-
-    return xds
+        return xds
+    else:
+        return agg
 
 
 def _make_bins_from_gridded_coord(x):
@@ -349,8 +357,31 @@ class PandasGridder:
         self._obj = pandas_obj
 
     def grid_to_target_array(
-        self, target_array, aggregators=("mean",), sparse=True, verbosity=20
+        self,
+        target_array,
+        aggregators=("mean",),
+        verbosity=20,
+        return_xarray=True,
     ):
+        """
+        Grids a dataframe to a target xr.DataArray. Note that the input dataframe
+        must contain columns for 'time', 'lat', and 'lon'. These cannot be index columns.
+        They have to be data columns.
+
+        Parameters
+        ----------
+        target_array : xr.DataArray
+            a regularly gridded 3D data array with dims (time, lat, lon)
+            this will only be used to define the output format.
+        aggregators : list of str
+            list of aggregators to apply to the data. Default is ["mean",]
+        verbosity : int [20]
+            verbosity level for logging
+        return_xarray : bool [True]
+            if True, returns an xarray object, DataArray or Dataset
+            if False, returns an unsorted pandas.DataFrame
+
+        """
         df = self._obj
 
         log = lambda msg: logger.log(verbosity, msg)
@@ -381,10 +412,9 @@ class PandasGridder:
             x,
             df[cols],
             target_array,
-            sparse=sparse,
+            return_xarray=return_xarray,
             aggregators=aggregators,
             verbosity=verbosity,
-        ).assign_attrs(
-            history=f"[AMC] gridded flag data to xr.DataArray shape {target_array.shape}"
         )
+
         return out
